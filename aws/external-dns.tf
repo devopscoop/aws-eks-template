@@ -14,6 +14,10 @@ module "external_dns_helm" {
 
   values = file("${path.module}/external-dns.values.yaml")
 
+  settings = {
+    txtOwnerId : var.cluster_name
+  }
+
   helm_wait = true
 
   helm_repo_url      = "https://kubernetes-sigs.github.io/external-dns/"

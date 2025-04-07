@@ -2,9 +2,6 @@ interval: "10m"
 triggerLoopOnEvent: true
 policy: "sync"
 
-# Setting this to cluster name
-txtOwnerId: var.cluster_name
-
 # TODO: Do we need this?
 #domainFilters:
 #  - "dev.devops.coop"
