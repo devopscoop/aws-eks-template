@@ -2,10 +2,6 @@
 # The example in https://github.com/opentofu/setup-opentofu
 # https://cd.foundation/blog/2024/02/28/how-to-deploy-infrastructure-in-ci-cd-using-opentofu/
 
-defaults:
-  run:
-    working-directory: aws
-
 on:
   push:
     branches:
