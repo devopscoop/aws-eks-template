@@ -1,3 +1,5 @@
+# diff <(curl -s https://raw.githubusercontent.com/trussworks/terraform-aws-bootstrap/refs/heads/main/variables.tf) variables.tf
+
 variable "account_alias" {
   description = "The desired AWS account alias."
   type        = string
