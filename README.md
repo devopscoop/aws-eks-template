@@ -7,21 +7,21 @@ This repo sets up our AWS EKS Kubernetes cluster
 1. [Bootstrap](bootstrap/README.md) the repo to create S3 buckets and DynamoDB for OpenTofu.
 1. [Configure AWS credentials](configure-aws-credentials/README.md) to allow GitHub Actions to perform tasks in our AWS account.
 1. Create a `.tfvars` file like this:
-  ```
-  admin_email    = "admin@devops.coop"
-  backend_s3_key = "cluster-tf/dev/terraform.tfstate"
-  cluster_name   = "dev"
-  github_repos   = ["repo:devopscoop/dev-k8s:*", ]
-  region         = "us-east-2"
-  tags_git_repo  = "github.com/devopscoop/cluster-tf"
-  tf_bucket      = "devopscoop-cluster-tf-state-us-east-2"
-  zone_name      = "dev.devops.coop"
-  ```
+   ```
+   admin_email    = "project1@devops.coop"
+   backend_s3_key = "project1-dev/terraform.tfstate"
+   cluster_name   = "project1-dev"
+   github_repos   = ["repo:devopscoop/project1-dev:*", ]
+   region         = "us-east-2"
+   tags_git_repo  = "github.com/devopscoop/project1-dev"
+   tf_bucket      = "devopscoop-project1-dev-tf-state-us-east-2"
+   zone_name      = "project1-dev.devops.coop"
+   ```
 1. Optionally test locally:
-  ```
-  tofu init -var-file=dev.tfvars
-  tofu plan -var-file=dev.tfvars
-  ```
+   ```
+   tofu init -var-file=dev.tfvars
+   tofu plan -var-file=dev.tfvars
+   ```
 1. Create a pull request.
 1. Review the OpenTofu plan in the PR.
 1. Merge to apply the change.
