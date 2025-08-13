@@ -1,0 +1,43 @@
+# https://github.com/marketplace/actions/github-actions-version-updater
+
+# Trying this as an alternative to Dependabot, because I want to be able to run it manually and have it output the SHA, not the version.
+
+name: GitHub Actions Version Updater
+
+# Controls when the action will run.
+on:
+  # can be used to run workflow manually
+  workflow_dispatch:
+  schedule:
+    # Automatically run on every Sunday
+    - cron:  '18 2 * * 0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # [Required] Access token with `workflow` scope.
+          token: ${{ secrets.WORKFLOW_SECRET }}
+
+      - name: Run GitHub Actions Version Updater
+        uses: saadmk11/github-actions-version-updater@v0.9.0
+        with:
+          # [Required] Access token with `workflow` scope.
+          token: ${{ secrets.WORKFLOW_SECRET }}
+          # committer_username: 'Test'
+          # committer_email: 'test@test.com'
+          # commit_message: 'Commit Message'
+          # pull_request_title: 'Pull Request Title'
+          # ignore: 'actions/checkout@v2, actions/cache@v2'
+          # skip_pull_request: 'false'
+          update_version_with: 'release-commit-sha'
+          # release_types: "minor, patch"
+          # pull_request_user_reviewers: "octocat, hubot, other_user"
+          # pull_request_team_reviewers: "justice-league, other_team"
+          # pull_request_labels: "dependencies, automated"
+          # extra_workflow_locations: "path/to/directory, path/to/workflow.yaml"
+          # [Experimental]
+          # pull_request_branch: "actions-update"
