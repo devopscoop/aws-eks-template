@@ -1,6 +1,6 @@
 # If you want to more variables from `variables.tf`, you need to add them to `main.tf`, then add them here.
 
-# Set this to the name of your cluster.
+# Set this to your cluster name.
 account_alias = "project1-dev"
 
 region        = "us-east-2"
