@@ -1,4 +1,0 @@
-# Not using this yet, but I suspect we will need it for secrets in tfvars files.
-#creation_rules:
-#  - path_regex: .*\.tfvars
-#    azure_keyvault: https://devopscoop.vault.azure.net/keys/sops/REDACTED

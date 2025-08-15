@@ -22,3 +22,6 @@ variable "tags_git_repo" {
 variable "admin_email" {
   type = string
 }
+variable "vpc_cidr" {
+  type = string
+}

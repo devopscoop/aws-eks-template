@@ -13,7 +13,7 @@ This is a one-time setup process that needs to be done once per AWS account. Thi
 
 ## Process
 
-1. Update the values in the terraform.tfvars file.
+1. Update the values in the `terraform.tfvars` file.
 1. Set your AWS_PROFILE to one that has enough access to create the resources:
    ```shell
    export AWS_PROFILE=devopscoop_AdministratorAccess

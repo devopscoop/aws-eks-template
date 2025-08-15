@@ -42,7 +42,7 @@ locals {
   name   = var.cluster_name
   region = var.region
 
-  vpc_cidr = "10.0.0.0/16"
+  vpc_cidr = var.vpc_cidr
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
   tags = {
@@ -105,9 +105,11 @@ module "eks" {
 
   }
 
-  cluster_name                   = local.name
-  cluster_version                = "1.30"
-  cluster_endpoint_public_access = true
+  cluster_name    = local.name
+  cluster_version = "1.30"
+
+  # Uncommenting this is convenient, but also worse for security.
+  # cluster_endpoint_public_access = true
 
   # Give the Terraform identity admin access to the cluster
   # which will allow resources to be deployed into the cluster
