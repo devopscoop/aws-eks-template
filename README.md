@@ -9,6 +9,9 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 
 ## Creating a cluster
 
+> **WARNING**
+> Don't `git push` any code unless there is an instruction to do so. If you push code too early, you will either get CI/CD pipeline errors, or you will accidentally build a misconfigured cluster.
+
 ### bootstrap
 
 Based on:
@@ -35,8 +38,8 @@ Process:
    ```shell
    git add -f terraform.tfstate*
    git commit -m "Bootstrapping OpenTofu"
-   git push
    ```
+
 ### configure-aws-credentials
 
 https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
