@@ -21,6 +21,7 @@ Based on:
 
 Process:
 
+1. Change directory to `bootstrap`.
 1. Update the values in the `terraform.tfvars` file.
 1. Set your AWS_PROFILE to one that has enough access to create the resources:
    ```shell
@@ -46,55 +47,46 @@ https://docs.github.com/en/actions/deployment/security-hardening-your-deployment
 
 While it seems like we should do this with Terraform, we have to do this in order for Terraform to have access to our AWS account, so actually, it just needs to be done manually...
 
-If you already have an OIDCProvider named token.actions.githubusercontent.com, you'll need to enter its ARN as the OIDCProviderArn when you create the the stack. You can find the arn with this command:
-
-```
-aws iam list-open-id-connect-providers
-```
 
 1. Log into the AWS Console
+1. Select your region.
+1. If you already have an OIDCProvider named token.actions.githubusercontent.com, you'll need to enter its ARN as the OIDCProviderArn when you create the the stack. You can find the arn with this command:
+   ```
+   aws iam list-open-id-connect-providers
+   ```
 1. Go to CloudFormation
 1. Click Create Stack, and select:
    - Choose an existing template
    - Upload a template file
-1. Choose the configure-aws-credentials-latest.yml file in this directory, then click Next.
+1. Choose the `configure-aws-credentials/configure-aws-credentials-latest.yml` file, then click Next.
 1. Specify these details, then click Next. For example:
    - Stack name: github-actions-project1-dev (github-actions-${repo_name})
    - GitHubOrg: devopscoop
-   - RepositoryName: project1-dev
+   - OIDCAudience: leave this as the default
    - OIDCProviderArn: arn:aws:iam::999999999999:oidc-provider/token.actions.githubusercontent.com
-1. Next, next, check the box, Submit.
-1. Get the ARN of the role that was created, it's probably something like: arn:aws:iam::999999999999:role/github-actions-project1-dev-Role-op9nZF6VBumT
-1. Create a branch of this repo, and add the role ARN to the `role-to-assume` in .github/workflows/opentofu.yml.
-1. Create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
-1. If it looks good, merge it to the default branch to create your cluster.
+   - RepositoryName: project1-dev
+1. Click Next, check the box, then click Submit.
+1. When it's done, click on the Resources tab, then click on the Role name.
+1. Get the ARN of the role that was created, it's probably something like: `arn:aws:iam::999999999999:role/github-actions-project1-dev-Role-op9nZF6VBumT`
 
 ### cluster
 
 Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb99477b4f0c64f6c0b6a9bbb6422c6/patterns/stateful
 
-1. [Bootstrap](bootstrap/README.md) the repo to create S3 buckets and DynamoDB for OpenTofu.
-1. [Configure AWS credentials](configure-aws-credentials/README.md) to allow GitHub Actions to perform tasks in our AWS account.
-1. Create a `terraform.tfvars` file like this:
+1. Create a branch of this repo - you don't want to commit to main directly, or it will run `tofu apply` without showing you the plan:
    ```
-   admin_email    = "project1@devops.coop"
-   backend_s3_key = "project1-dev/terraform.tfstate"
-   cluster_name   = "project1-dev"
-   github_repos   = ["repo:devopscoop/project1-dev:*", ]
-   region         = "us-east-2"
-   tags_git_repo  = "github.com/devopscoop/project1-dev"
-   tf_bucket      = "devopscoop-project1-dev-tf-state-us-east-2"
-   vpc_cidr       = "10.0.0.0/16"
-   zone_name      = "project1-dev.devops.coop"
+   git checkout -b create_cluster
    ```
+1. Add the role ARN from the configure-aws-credentials section to the `role-to-assume` in .github/workflows/opentofu.yml.
+1. Change directory to `cluster`.
+1. Edit the `terraform.tfvars` file.
 1. Optionally test locally:
    ```
    tofu init
    tofu plan
    ```
-1. Create a pull request.
-1. Review the OpenTofu plan in the PR.
-1. Merge to apply the change.
+1. Create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
+1. If it looks good, merge it to the default branch to create your cluster.
 1. After OpenTofu finishes, uncomment this `github-actions` block in main.tf and create another PR.
 
 ### examples
