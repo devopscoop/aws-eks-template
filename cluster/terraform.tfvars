@@ -6,12 +6,7 @@ cluster_version = "1.33"
 # If you changed dynamodb_table_name in bootstrap/terraform.tfvars, set this to the same value.
 # dynamodb_table = "project1-dev-terraform-state-lock"
 
-# Use this not-quite-one-liner to fetch the correct EKS addon versions:
-# export AWS_REGION=$(sed -nE "s/^region[^=]*=[ \t]+['\"]?([^'\"]+)['\"]?/\1/p" terraform.tfvars)
-# export cluster_version=$(sed -nE "s/^cluster_version[^=]*=[ \t]+['\"]?([^'\"]+)['\"]?/\1/p" terraform.tfvars)
-# for eks_addon in aws-ebs-csi-driver coredns kube-proxy vpc-cni; do
-#   echo "eks_addon_version_${eks_addon} = \"$(aws eks describe-addon-versions --addon-name "$eks_addon" --kubernetes-version "$cluster_version" --query "addons[].addonVersions[].addonVersion" | jq -r '.[0]')\""
-# done
+# Use the update_eks_addons.sh script in this directory to automatically update all EKS addon versions in this file.
 eks_addon_version_aws-ebs-csi-driver = "v1.47.0-eksbuild.1"
 eks_addon_version_coredns            = "v1.12.2-eksbuild.4"
 eks_addon_version_kube-proxy         = "v1.33.3-eksbuild.4"
