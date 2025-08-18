@@ -25,3 +25,8 @@ variable "admin_email" {
 variable "vpc_cidr" {
   type = string
 }
+
+variable "dynamodb_table" {
+  type = string,
+  default = "terraform-state-lock"
+}

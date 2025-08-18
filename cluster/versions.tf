@@ -16,13 +16,13 @@ terraform {
   # Naming schemes based on https://github.com/trussworks/terraform-aws-bootstrap?tab=readme-ov-file#using-the-backend
   backend "s3" {
 
-    # This must match "${var.account_alias}-${var.bucket_purpose}-${var.region}"
+    # This is probably "${var.account_alias}-${var.bucket_purpose}-${var.region}"
     bucket = var.tf_bucket
 
-    dynamodb_table = "terraform-state-lock"
+    dynamodb_table = var.dynamodb_table
     encrypt        = "true"
 
-    # This must match "${git_repo_name}/${cluster_name}/terraform.tfstate"
+    # This is probably "${cluster_name}/terraform.tfstate"
     key = var.backend_s3_key
 
     region = var.region
