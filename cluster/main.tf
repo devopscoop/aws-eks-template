@@ -106,7 +106,7 @@ module "eks" {
   }
 
   cluster_name    = local.name
-  cluster_version = "1.30"
+  cluster_version = var.cluster_version
 
   # Uncommenting this is convenient, but also worse for security.
   # cluster_endpoint_public_access = true
@@ -172,11 +172,18 @@ module "eks_blueprints_addons" {
 
   eks_addons = {
     aws-ebs-csi-driver = {
+      addon_version            = var.eks_addon_version_aws-ebs-csi-driver
       service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
     }
-    coredns    = {}
-    vpc-cni    = {}
-    kube-proxy = {}
+    coredns = {
+      addon_version = var.eks_addon_version_coredns
+    }
+    vpc-cni = {
+      addon_version = var.eks_addon_version_vpc-cni
+    }
+    kube-proxy = {
+      addon_version = var.eks_addon_version_kube-proxy
+    }
   }
 
   enable_aws_efs_csi_driver = true

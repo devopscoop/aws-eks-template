@@ -30,3 +30,7 @@ variable "dynamodb_table" {
   type    = string
   default = "terraform-state-lock"
 }
+
+variable "cluster_version" {
+  type = string
+}

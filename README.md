@@ -87,6 +87,7 @@ Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb
    ```
 1. Create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
 1. If it looks good, merge it to the default branch to create your cluster.
+1. If the job fails, try running it again - sometimes it times out when creating all the resources.
 1. After OpenTofu finishes, uncomment this `github-actions` block in main.tf and create another PR.
 
 ### examples
