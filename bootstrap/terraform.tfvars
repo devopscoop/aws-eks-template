@@ -9,4 +9,4 @@ region = "us-east-2"
 # Uncomment this to prevent this code from setting your AWS account alias to your cluster name:
 # manage_account_alias = false
 # Uncomment this to add your cluster name as a prefix to the dynamodb_table_name, to avoid duplicate table names:
-# dynamodb_table_name=project1-dev-terraform-state-lock
+# dynamodb_table_name = "project1-dev-terraform-state-lock"
