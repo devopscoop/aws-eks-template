@@ -91,17 +91,17 @@ module "eks" {
     # }
 
     # After creating the cluster and github-actions-${var.cluster_name}-helm role, uncomment this block.
-    github-actions = {
-      principal_arn = "arn:aws:iam::${local.account_id}:role/github-actions-${var.cluster_name}-helm"
-      policy_associations = {
-        AmazonEKSClusterAdminPolicy = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
-        }
-      }
-    }
+    # github-actions = {
+    #   principal_arn = "arn:aws:iam::${local.account_id}:role/github-actions-${var.cluster_name}-helm"
+    #   policy_associations = {
+    #     AmazonEKSClusterAdminPolicy = {
+    #       policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+    #       access_scope = {
+    #         type = "cluster"
+    #       }
+    #     }
+    #   }
+    # }
 
   }
 
