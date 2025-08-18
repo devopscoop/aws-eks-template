@@ -27,6 +27,6 @@ variable "vpc_cidr" {
 }
 
 variable "dynamodb_table" {
-  type = string
+  type    = string
   default = "terraform-state-lock"
 }
