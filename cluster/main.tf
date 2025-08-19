@@ -3,7 +3,7 @@
 provider "aws" {
   region = local.region
 
-  # You get a tag! YOU get a tag! EVERYBODY GETS TAGS!
+  # All the resources created by the aws provider will get all the local tags.
   default_tags {
     tags = local.tags
   }
@@ -36,7 +36,14 @@ provider "helm" {
 }
 
 data "aws_caller_identity" "current" {}
-data "aws_availability_zones" "available" {}
+
+data "aws_availability_zones" "available" {
+  # Do not include local zones
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
+}
 
 locals {
   name   = var.cluster_name
@@ -45,12 +52,15 @@ locals {
   vpc_cidr = var.vpc_cidr
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
+  # To ensure name is consistent between whats created and the user data script
+  second_volume_name = "/dev/xvdb"
+
   tags = {
     GitRepo = var.tags_git_repo
   }
 
-  # Needed by helmfile.tf
-  account_id = data.aws_caller_identity.current.account_id
+  # Needed by examples/helmfile.tf
+  # account_id = data.aws_caller_identity.current.account_id
 
 }
 
@@ -60,22 +70,26 @@ locals {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.23.0"
+  version = "~> 20.11"
+
+  cluster_name    = local.name
+  cluster_version = var.cluster_version
+  cluster_endpoint_public_access = true
 
   # Grant AWS SSO roles appropriate access to the cluster
   access_entries = {
 
-    AWSReservedSSO_AdministratorAccess = {
-      principal_arn = tolist(data.aws_iam_roles.administratoraccess.arns)[0]
-      policy_associations = {
-        AmazonEKSClusterAdminPolicy = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
-        }
-      }
-    }
+    # AWSReservedSSO_AdministratorAccess = {
+    #   principal_arn = tolist(data.aws_iam_roles.administratoraccess.arns)[0]
+    #   policy_associations = {
+    #     AmazonEKSClusterAdminPolicy = {
+    #       policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+    #       access_scope = {
+    #         type = "cluster"
+    #       }
+    #     }
+    #   }
+    # }
 
     # If there are any ViewOnlyAccess roles, uncomment this:
     # AWSReservedSSO_ViewOnlyAccess = {
@@ -105,12 +119,6 @@ module "eks" {
 
   }
 
-  cluster_name    = local.name
-  cluster_version = var.cluster_version
-
-  # Uncommenting this is convenient, but also worse for security.
-  # cluster_endpoint_public_access = true
-
   # Give the Terraform identity admin access to the cluster
   # which will allow resources to be deployed into the cluster
   enable_cluster_creator_admin_permissions = true
@@ -139,8 +147,6 @@ module "eks" {
       //    source_security_group_ids = [aws_security_group.remote_access.id]
       //  }
 
-      # Can't use ARM arch yet, because circom doesn't have a published binary for ARM.
-      # https://github.com/iden3/circom/issues/273
       #instance_types = ["t4g.large"]
       #ami_type       = "AL2023_ARM_64_STANDARD"
       instance_types = ["t3a.large"]
@@ -161,7 +167,7 @@ module "eks" {
 
 module "eks_blueprints_addons" {
   source  = "aws-ia/eks-blueprints-addons/aws"
-  version = "1.16.3"
+  version = "~> 1.16"
 
   cluster_name      = module.eks.cluster_name
   cluster_endpoint  = module.eks.cluster_endpoint
@@ -266,7 +272,7 @@ resource "kubernetes_storage_class_v1" "efs" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "5.12.1"
+  version = "~> 5.0"
 
   name = local.name
   cidr = local.vpc_cidr
@@ -289,7 +295,7 @@ module "vpc" {
 
 module "efs" {
   source  = "terraform-aws-modules/efs/aws"
-  version = "1.6.3"
+  version = "~> 1.1"
 
   creation_token = local.name
   name           = local.name
@@ -311,7 +317,7 @@ module "efs" {
 
 module "ebs_kms_key" {
   source  = "terraform-aws-modules/kms/aws"
-  version = "3.1.0"
+  version = "~> 1.5"
 
   description = "Customer managed key to encrypt EKS managed node group volumes"
 
@@ -330,7 +336,7 @@ module "ebs_kms_key" {
 
 module "ebs_csi_driver_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "5.44.0"
+  version = "~> 5.20"
 
   role_name_prefix = "${module.eks.cluster_name}-ebs-csi-driver-"
 
