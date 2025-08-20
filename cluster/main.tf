@@ -74,6 +74,8 @@ module "eks" {
 
   cluster_name    = local.name
   cluster_version = var.cluster_version
+
+  # TODO: This is insecure and should be removed, but we need to setup a VPN first.
   cluster_endpoint_public_access = true
 
   # Grant AWS SSO roles appropriate access to the cluster
@@ -147,8 +149,10 @@ module "eks" {
       //    source_security_group_ids = [aws_security_group.remote_access.id]
       //  }
 
-      #instance_types = ["t4g.large"]
-      #ami_type       = "AL2023_ARM_64_STANDARD"
+      # TODO: Are ARM instances more efficient?
+      # instance_types = ["t4g.large"]
+      # ami_type       = "AL2023_ARM_64_STANDARD"
+
       instance_types = ["t3a.large"]
 
       min_size = 3
