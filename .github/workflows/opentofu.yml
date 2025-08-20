@@ -23,15 +23,6 @@ jobs:
   opentofu:
     runs-on: ubuntu-latest
     steps:
-
-    # Adding this because module.eks_blueprints_addons.module.aws_efs_csi_driver.helm_release.this[0] requires the AWS CLI.
-    # TODO: Pin this to a specific version.
-    - name: Install AWS CLI v2
-      run: |
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-        unzip awscliv2.zip
-        ./aws/install
-
     - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
       with:
 
@@ -59,6 +50,16 @@ jobs:
       run: tofu init
     - id: validate
       run: tofu validate -no-color
+
+    # Adding this because module.eks_blueprints_addons.module.aws_efs_csi_driver.helm_release.this[0] requires the AWS CLI.
+    # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+    # TODO: Pin this to a specific version.
+    - name: Install AWS CLI v2
+      run: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        ./aws/install
+
     - id: plan
       run: tofu plan -no-color -input=false -compact-warnings -out=plan.file
       continue-on-error: true
