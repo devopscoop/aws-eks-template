@@ -340,7 +340,7 @@ module "ebs_kms_key" {
 
 module "ebs_csi_driver_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.20"
+  version = "~> 6.1"
 
   role_name_prefix = "${module.eks.cluster_name}-ebs-csi-driver-"
 
