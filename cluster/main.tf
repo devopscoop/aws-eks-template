@@ -321,7 +321,7 @@ module "efs" {
 
 module "ebs_kms_key" {
   source  = "terraform-aws-modules/kms/aws"
-  version = "~> 1.5"
+  version = "~> 4.0"
 
   description = "Customer managed key to encrypt EKS managed node group volumes"
 
