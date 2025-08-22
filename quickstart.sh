@@ -9,7 +9,7 @@ Usage:
 
 For example:
 
-  $0 project1-dev devops.coop devopscoop us-east-2
+  $0 project1-dev dfinity.network dfinity-ops cmh1-dashboard-prod
 
 EOF
   exit 1
@@ -23,7 +23,9 @@ export domain=$2
 export github_org=$3
 export region=$4
 
-grep -rIl --exclude-dir .git --exclude-dir .terraform project1-dev "${SCRIPT_DIR}" | xargs perl -pi -e "s/us-east-2/${cluster_name}/g"
-grep -rIl --exclude-dir .git --exclude-dir .terraform devops.coop "${SCRIPT_DIR}" | xargs perl -pi -e "s/devops.coop/${domain}/g"
-grep -rIl --exclude-dir .git --exclude-dir .terraform devopscoop cluster "${SCRIPT_DIR}" | xargs perl -pi -e "s/devopscoop/${github_org}/g"
-grep -rIl --exclude-dir .git --exclude-dir .terraform us-east-2 "${SCRIPT_DIR}" | xargs perl -pi -e "s/us-east-2/${region}/g"
+export EXCLUDES="--exclude-dir .git --exclude-dir .terraform --exclude LICENSE --exclude README.md --exclude quickstart.sh"
+
+grep -rIl ${EXCLUDES} project1-dev "${SCRIPT_DIR}" | xargs perl -pi -e "s/project1-dev/${cluster_name}/g"
+grep -rIl ${EXCLUDES} devops.coop "${SCRIPT_DIR}" | xargs perl -pi -e "s/devops.coop/${domain}/g"
+grep -rIl ${EXCLUDES} devopscoop "${SCRIPT_DIR}" | xargs perl -pi -e "s/devopscoop/${github_org}/g"
+grep -rIl ${EXCLUDES} us-east-2 "${SCRIPT_DIR}" | xargs perl -pi -e "s/us-east-2/${region}/g"
