@@ -1,4 +1,4 @@
-# If you want to more variables from `variables.tf`, you need to add them to `main.tf`, then add them here.
+# If you want to use more variables from the `variables.tf` file, you will need to add them to both the `main.tf` file, and this one.
 
 # Set this to your cluster name.
 account_alias = "project1-dev"

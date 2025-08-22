@@ -25,7 +25,7 @@ data "aws_iam_policy_document" "helmfile_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = var.github_repos
+      values   = ["repo:devopscoop/project1-dev:*", ]
     }
   }
 }

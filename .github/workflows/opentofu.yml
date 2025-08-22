@@ -26,13 +26,15 @@ jobs:
     - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
       with:
 
-        # TODO This should be a variable.
-        aws-region: us-east-2
+        # TODO This should be a variable. Do we have to specify this? Commenting it out to test.
+        # aws-region: us-east-2
 
-        # TODO This needs to be updated to your actual values. We should add a `yq` command that adds this as one of the steps in the initial README.
+        # TODO This needs to be updated to your actual ARN.
         role-to-assume: arn:aws:iam::999999999999:role/github-actions-dev-tf-Role-REDACTED
 
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+    # TODO verify that this is working
     - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       id: cache
       with:
@@ -41,7 +43,10 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
         restore-keys: |
           ${{ runner.os }}-
+
+    # TODO: verify that it's using the .opentofu-version file to get the version
     - uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
+
     - id: fmt
       run: tofu fmt -recursive -check
       continue-on-error: true
@@ -61,7 +66,7 @@ jobs:
         ./aws/install
 
     - id: plan
-      run: tofu plan -no-color -input=false -compact-warnings -out=plan.file
+      run: tofu plan -no-color -input=false -out=plan.file
       continue-on-error: true
     - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
       if: github.event_name == 'pull_request'
@@ -100,4 +105,4 @@ jobs:
             body: output
           })
     - if: github.ref == 'refs/heads/main'
-      run: tofu apply -no-color -input=false -compact-warnings plan.file
+      run: tofu apply -no-color -input=false plan.file
