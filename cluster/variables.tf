@@ -10,7 +10,7 @@ variable "backend_s3_key" {
 }
 variable "cluster_name" {
   type        = string
-  description = "Recommended naming scheme is ${project}-${environment}"
+  description = "Recommended naming scheme is $${project}-$${environment}"
 }
 variable "cluster_version" { type = string }
 variable "dynamodb_table" {
@@ -32,7 +32,7 @@ variable "tags_git_repo" {
 }
 variable "tf_bucket" {
   type        = string
-  description = "This is the bucket that we created during the bootstrap phase. That module uses the naming scheme: ${var.account_alias}-${var.bucket_purpose}-${var.region}"
+  description = "This is the bucket that we created during the bootstrap phase. That module uses the naming scheme: $${var.account_alias}-$${var.bucket_purpose}-$${var.region}"
 }
 variable "vpc_cidr" { type = string }
 variable "zone_name" { type = string }

@@ -14,17 +14,21 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 
 ### Quickstart
 
-Run the quickstart.sh script to replace default values with your organization's values:
-
-```
-Usage:
-
-  ./quickstart.sh cluster_name domain github_org region
-
-For example:
-
-  ./quickstart.sh project1-dev devops.coop devopscoop us-east-2
-```
+1. Run the quickstart.sh script to replace default values with your organization's values:
+   ```
+   Usage:
+   
+     ./quickstart.sh cluster_name domain github_org region
+   
+   For example:
+   
+     ./quickstart.sh project1-dev devops.coop devopscoop us-east-2
+   ```
+1. Add and commit your files:
+   ```
+   git add -A
+   git commit -m "quickstart.sh"
+   ```
 
 ### bootstrap
 
@@ -69,7 +73,8 @@ While it seems like we should do this with Terraform, we have to do this in orde
    aws iam list-open-id-connect-providers
    ```
 1. Go to CloudFormation
-1. Click Create Stack, and select:
+1. Click Create Stack, then "With new resources (standard)".
+1. Select:
    - Choose an existing template
    - Upload a template file
 1. Choose the `configure-aws-credentials/configure-aws-credentials-latest.yml` file, then click Next.
@@ -79,7 +84,7 @@ While it seems like we should do this with Terraform, we have to do this in orde
    - OIDCAudience: leave this as the default
    - OIDCProviderArn: arn:aws:iam::999999999999:oidc-provider/token.actions.githubusercontent.com
    - RepositoryName: project1-dev
-1. Click Next, check the box, then click Submit.
+1. Click Next, scroll to the bottom, check the "acknowledge" box, click Next again, scroll down again, then click Submit.
 1. When it's done, click on the Resources tab, then click on the Role name.
 1. Get the ARN of the role that was created, it's probably something like: `arn:aws:iam::999999999999:role/github-actions-project1-dev-Role-op9nZF6VBumT`
 
