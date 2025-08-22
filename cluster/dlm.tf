@@ -14,7 +14,7 @@ data "aws_iam_policy_document" "dlm_trust" {
 }
 
 resource "aws_iam_role" "dlm" {
-  name               = "dlm-lifecycle-role"
+  name               = "${var.cluster_name}-dlm-lifecycle-role"
   assume_role_policy = data.aws_iam_policy_document.dlm_trust.json
 }
 
@@ -42,7 +42,7 @@ data "aws_iam_policy_document" "dlm_permissions" {
 }
 
 resource "aws_iam_role_policy" "dlm" {
-  name   = "dlm-lifecycle-policy"
+  name   = "${var.cluster_name}-dlm-lifecycle-policy"
   role   = aws_iam_role.dlm.id
   policy = data.aws_iam_policy_document.dlm_permissions.json
 }
@@ -55,7 +55,7 @@ resource "aws_dlm_lifecycle_policy" "eks" {
     resource_types = ["VOLUME"]
 
     schedule {
-      name = "2 weeks of daily snapshots"
+      name = var.cluster_name
 
       create_rule {
         interval      = 24
