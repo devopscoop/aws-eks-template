@@ -12,6 +12,20 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 > **WARNING**
 > Don't `git push` any code unless there is an instruction to do so. If you push code too early, you will either get CI/CD pipeline errors, or you will accidentally build a misconfigured cluster.
 
+### Quickstart
+
+Run the quickstart.sh script to replace default values with your organization's values:
+
+```
+Usage:
+
+  ./quickstart.sh cluster_name domain github_org region
+
+For example:
+
+  ./quickstart.sh project1-dev devops.coop devopscoop us-east-2
+```
+
 ### bootstrap
 
 Based on:
