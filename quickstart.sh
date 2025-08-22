@@ -23,7 +23,7 @@ export domain=$2
 export github_org=$3
 export region=$4
 
-grep -rIl --exclude-dir .git --exclude-dir .terraform project1-dev "${SCRIPT_DIR}" | xargs sed -i "s/us-east-2/${cluster_name}/g"
-grep -rIl --exclude-dir .git --exclude-dir .terraform devops.coop "${SCRIPT_DIR}" | xargs sed -i "s/devops.coop/${domain}/g"
-grep -rIl --exclude-dir .git --exclude-dir .terraform devopscoop cluster "${SCRIPT_DIR}" | xargs sed -i "s/devopscoop/${github_org}/g"
-grep -rIl --exclude-dir .git --exclude-dir .terraform us-east-2 "${SCRIPT_DIR}" | xargs sed -i "s/us-east-2/${region}/g"
+grep -rIl --exclude-dir .git --exclude-dir .terraform project1-dev "${SCRIPT_DIR}" | xargs perl -pi -e "s/us-east-2/${cluster_name}/g"
+grep -rIl --exclude-dir .git --exclude-dir .terraform devops.coop "${SCRIPT_DIR}" | xargs perl -pi -e "s/devops.coop/${domain}/g"
+grep -rIl --exclude-dir .git --exclude-dir .terraform devopscoop cluster "${SCRIPT_DIR}" | xargs perl -pi -e "s/devopscoop/${github_org}/g"
+grep -rIl --exclude-dir .git --exclude-dir .terraform us-east-2 "${SCRIPT_DIR}" | xargs perl -pi -e "s/us-east-2/${region}/g"
