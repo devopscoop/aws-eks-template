@@ -1,6 +1,7 @@
 # Based on:
 # https://github.com/opentofu/setup-opentofu
 
+# When we create a pull request (PR) to the main branch, this workflow runs `tofu plan`, and adds the output as a comment to the PR. If the plan looks good, we merge (ie. push) the code to the main branch. On push to main, this runs a `tofu apply`.
 on:
   push:
     branches:
@@ -21,24 +22,22 @@ jobs:
     steps:
       - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
-          # TODO This should be a variable.
+          # This will be overwritten with the correct region by quickstart.sh.
           aws-region: us-east-2
-          # TODO This needs to be updated to your actual ARN.
+          # This must be manually updated to our actual ARN.
           role-to-assume: arn:aws:iam::999999999999:role/github-actions-dev-tf-Role-REDACTED
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
         with:
           tofu_version_file: cluster/.opentofu-version
-      - name: OpenTofu version
-        run: |
+      - run: |
           tofu version
       # https://github.com/magnetikonline/terraform-github-action-cache-example
       - name: Configure Terraform plugin cache
         run: |
           echo "TF_PLUGIN_CACHE_DIR=$HOME/.terraform.d/plugin-cache" >>"$GITHUB_ENV"
           mkdir --parents "$HOME/.terraform.d/plugin-cache"
-      - name: Cache Terraform
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: |
             ~/.terraform.d/plugin-cache
