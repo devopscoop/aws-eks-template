@@ -52,9 +52,6 @@ locals {
   vpc_cidr = var.vpc_cidr
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
-  # To ensure name is consistent between whats created and the user data script
-  second_volume_name = "/dev/xvdb"
-
   tags = {
     GitRepo = var.tags_git_repo
   }
@@ -70,13 +67,11 @@ locals {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.11"
+  version = "21.1.5"
 
-  cluster_name    = local.name
-  cluster_version = var.cluster_version
-
-  # TODO: This is insecure and should be removed, but we need to setup a VPN first.
-  cluster_endpoint_public_access = true
+  name                   = local.name
+  kubernetes_version     = var.cluster_version
+  endpoint_public_access = true
 
   # Grant AWS SSO roles appropriate access to the cluster
   access_entries = {
@@ -128,13 +123,6 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  eks_managed_node_group_defaults = {
-    iam_role_additional_policies = {
-      # Not required, but used in the example to access the nodes to inspect mounted volumes
-      AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-    }
-  }
-
   eks_managed_node_groups = {
     blue = {
 
@@ -149,11 +137,13 @@ module "eks" {
       //    source_security_group_ids = [aws_security_group.remote_access.id]
       //  }
 
-      # TODO: Are ARM instances more efficient?
       # instance_types = ["t4g.large"]
       # ami_type       = "AL2023_ARM_64_STANDARD"
-
       instance_types = ["t3a.large"]
+
+      iam_role_additional_policies = {
+        AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      }
 
       min_size = 3
       max_size = 3
@@ -171,7 +161,7 @@ module "eks" {
 
 module "eks_blueprints_addons" {
   source  = "aws-ia/eks-blueprints-addons/aws"
-  version = "~> 1.16"
+  version = "1.22.0"
 
   cluster_name      = module.eks.cluster_name
   cluster_endpoint  = module.eks.cluster_endpoint
@@ -183,7 +173,7 @@ module "eks_blueprints_addons" {
   eks_addons = {
     aws-ebs-csi-driver = {
       addon_version            = var.eks_addon_version_aws-ebs-csi-driver
-      service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
+      service_account_role_arn = module.ebs_csi_driver_irsa.arn
     }
     coredns = {
       addon_version = var.eks_addon_version_coredns
@@ -276,7 +266,7 @@ resource "kubernetes_storage_class_v1" "efs" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "6.0.1"
 
   name = local.name
   cidr = local.vpc_cidr
@@ -299,7 +289,7 @@ module "vpc" {
 
 module "efs" {
   source  = "terraform-aws-modules/efs/aws"
-  version = "~> 1.1"
+  version = "1.8.0"
 
   creation_token = local.name
   name           = local.name
@@ -321,7 +311,7 @@ module "efs" {
 
 module "ebs_kms_key" {
   source  = "terraform-aws-modules/kms/aws"
-  version = "~> 1.5"
+  version = "4.0.0"
 
   description = "Customer managed key to encrypt EKS managed node group volumes"
 
@@ -339,17 +329,15 @@ module "ebs_kms_key" {
 }
 
 module "ebs_csi_driver_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.20"
-
-  role_name_prefix = "${module.eks.cluster_name}-ebs-csi-driver-"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "6.2.1"
 
   attach_ebs_csi_policy = true
-
   oidc_providers = {
     main = {
       provider_arn               = module.eks.oidc_provider_arn
       namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
     }
   }
+  use_name_prefix = true
 }

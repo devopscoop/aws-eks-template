@@ -17,11 +17,11 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 1. Run the quickstart.sh script to replace default values with your organization's values:
    ```
    Usage:
-   
+
      ./quickstart.sh cluster_name domain github_org region
-   
+
    For example:
-   
+
      ./quickstart.sh project1-dev devops.coop devopscoop us-east-2
    ```
 1. Add and commit your files:
@@ -106,7 +106,7 @@ Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb
    ```
 1. Create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
 1. If it looks good, merge it to the default branch to create your cluster.
-1. If the job fails, try running it again - sometimes it times out when creating all the resources.
+1. TODO: Sometimes the job fails. Running it again and it will probably work. We need to troubleshoot this by running it manually since the error doesn't show up in GitHub Actions output.
 1. After OpenTofu finishes, uncomment this `github-actions` block in main.tf and create another PR.
 
 ### examples
