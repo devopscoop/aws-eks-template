@@ -1,6 +1,6 @@
 module "sops" {
   source  = "terraform-aws-modules/kms/aws"
-  version = "4.0.0"
+  version = "4.1.0"
 
   key_users = flatten([
     tolist(data.aws_iam_roles.administratoraccess.arns),
