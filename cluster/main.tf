@@ -65,9 +65,32 @@ locals {
 # Cluster
 ################################################################################
 
+# https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/examples/eks-managed-node-group/eks-al2023.tf
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "21.1.5"
+
+
+  addons = {
+    aws-ebs-csi-driver = {
+      addon_version            = var.eks_addon_version_aws-ebs-csi-driver
+      service_account_role_arn = module.ebs_csi_driver_irsa.arn
+    }
+    coredns = {
+      addon_version = var.eks_addon_version_coredns
+    }
+    eks-pod-identity-agent = {
+      addon_version = var.eks_addon_version_eks-pod-identity-agent
+      before_compute = true
+    }
+    kube-proxy = {
+      addon_version = var.eks_addon_version_kube-proxy
+    }
+    vpc-cni = {
+      addon_version  = var.eks_addon_version_vpc-cni
+      before_compute = true
+    }
+  }
 
   name                   = local.name
   kubernetes_version     = var.cluster_version
@@ -126,24 +149,20 @@ module "eks" {
   eks_managed_node_groups = {
     blue = {
 
-      // Note: `disk_size`, and `remote_access` can only be set when using the EKS managed node group default launch template
-      // This module defaults to providing a custom launch template to allow for custom security groups, tag propagation, etc.
+      # Note: `disk_size`, and `remote_access` can only be set when using the EKS managed node group default launch template
+      # This module defaults to providing a custom launch template to allow for custom security groups, tag propagation, etc.
       use_custom_launch_template = false
       disk_size                  = 50
-      //
-      //  # Remote access cannot be specified with a launch template
-      //  remote_access = {
-      //    ec2_ssh_key               = module.key_pair.key_pair_name
-      //    source_security_group_ids = [aws_security_group.remote_access.id]
-      //  }
+
+      # Remote access cannot be specified with a launch template
+      # remote_access = {
+      #   ec2_ssh_key               = module.key_pair.key_pair_name
+      #   source_security_group_ids = [aws_security_group.remote_access.id]
+      # }
 
       # instance_types = ["t4g.large"]
       # ami_type       = "AL2023_ARM_64_STANDARD"
       instance_types = ["t3a.large"]
-
-      iam_role_additional_policies = {
-        AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-      }
 
       min_size = 3
       max_size = 3
@@ -153,40 +172,6 @@ module "eks" {
     }
 
   }
-}
-
-################################################################################
-# EKS Blueprints Addons
-################################################################################
-
-module "eks_blueprints_addons" {
-  source  = "aws-ia/eks-blueprints-addons/aws"
-  version = "1.22.0"
-
-  cluster_name      = module.eks.cluster_name
-  cluster_endpoint  = module.eks.cluster_endpoint
-  cluster_version   = module.eks.cluster_version
-  oidc_provider_arn = module.eks.oidc_provider_arn
-
-  create_delay_dependencies = [for group in module.eks.eks_managed_node_groups : group.node_group_arn]
-
-  eks_addons = {
-    aws-ebs-csi-driver = {
-      addon_version            = var.eks_addon_version_aws-ebs-csi-driver
-      service_account_role_arn = module.ebs_csi_driver_irsa.arn
-    }
-    coredns = {
-      addon_version = var.eks_addon_version_coredns
-    }
-    vpc-cni = {
-      addon_version = var.eks_addon_version_vpc-cni
-    }
-    kube-proxy = {
-      addon_version = var.eks_addon_version_kube-proxy
-    }
-  }
-
-  enable_aws_efs_csi_driver = true
 }
 
 ################################################################################
@@ -209,7 +194,7 @@ resource "kubernetes_annotations" "gp2" {
   }
 
   depends_on = [
-    module.eks_blueprints_addons
+    module.eks
   ]
 }
 
@@ -235,7 +220,7 @@ resource "kubernetes_storage_class_v1" "gp3" {
   }
 
   depends_on = [
-    module.eks_blueprints_addons
+    module.eks
   ]
 }
 
@@ -256,7 +241,7 @@ resource "kubernetes_storage_class_v1" "efs" {
   ]
 
   depends_on = [
-    module.eks_blueprints_addons
+    module.eks
   ]
 }
 

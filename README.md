@@ -107,10 +107,19 @@ Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb
 1. Create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
 1. If it looks good, merge it to the default branch to create your cluster.
 1. TODO: Sometimes the job fails. Running it again and it will probably work. We need to troubleshoot this by running it manually since the error doesn't show up in GitHub Actions output.
-1. After OpenTofu finishes, uncomment this `github-actions` block in main.tf and create another PR.
 
 ### examples
 
 ## Destroying a cluster
 
 To destroy a cluster, add `-destroy` to the `tofu plan` and `tofu apply` lines in the `.github/workflows/opentofu.yml` file.
+
+Once the cluster has been destroyed, open AWS Console, go to Cloudformation, and delete the github-actions-project1-dev stack.
+
+The last thing to clean up is the bootstrap code that created the S3 bucket and DynamoDB. To destroy that, go to the bootstrap directory on your local laptop, and run:
+
+```
+tofu destroy
+```
+
+This will likely fail, because the bucket isn't empty. In the AWS Console, find your S3 buckets (search for your cluster name), and empty them, then run the `tofu destroy` again.
