@@ -2,11 +2,14 @@ module "bootstrap" {
   source  = "trussworks/bootstrap/aws"
   version = "v7.0.0"
 
-  account_alias        = var.account_alias
+  # We're setting this to the EKS cluster name, not the account alias. This variable is used to create the bucket names, and we want separate buckets per cluster so that `tofu apply` and `tofu destroy` don't affect any other clusters in this account.
+  account_alias = var.cluster_name
 
-  # The default name is just "terraform-state-lock". If we have multiple clusters in a single AWS account, this causes a name collision.
-  dynamodb_table_name  = "${var.account_alias}-terraform-state-lock"
+  # The default is "terraform-state-lock". If we have multiple clusters in an AWS account, this causes a name collision, so we're adding the cluster name as a prefix.
+  dynamodb_table_name = "${var.cluster_name}-terraform-state-lock"
 
-  manage_account_alias = var.manage_account_alias
-  region               = var.region
+  # The alias should be assigned during AWS account creation, which is outside the scope of this repo.
+  manage_account_alias = false
+
+  region = var.region
 }

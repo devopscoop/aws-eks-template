@@ -1,6 +1,9 @@
+# These should be the same as the ones in bootstrap/terraform.tfvars.
+cluster_name = "project1-dev"
+region       = "us-east-2"
+
 admin_email     = "hostmaster@devops.coop"
 backend_s3_key  = "project1-dev/terraform.tfstate"
-cluster_name    = "project1-dev"
 cluster_version = "1.33"
 dynamodb_table  = "terraform-state-lock"
 
@@ -12,9 +15,6 @@ eks_addon_version_kube-proxy             = "v1.33.3-eksbuild.6"
 eks_addon_version_vpc-cni                = "v1.20.1-eksbuild.3"
 
 enable_route53 = true
-
-# This should be the same region as the one in bootstrap/terraform.tfvars.
-region = "us-east-2"
 
 tags_git_repo = "github.com/devopscoop/project1-dev"
 tf_bucket     = "project1-dev-tf-state-us-east-2"

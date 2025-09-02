@@ -80,7 +80,7 @@ module "eks" {
       addon_version = var.eks_addon_version_coredns
     }
     eks-pod-identity-agent = {
-      addon_version = var.eks_addon_version_eks-pod-identity-agent
+      addon_version  = var.eks_addon_version_eks-pod-identity-agent
       before_compute = true
     }
     kube-proxy = {
