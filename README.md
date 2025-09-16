@@ -7,6 +7,10 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 1. **cluster**: is executed by the CI/CD pipeline to create the cluster.
 1. **examples**: has additional code to build more AWS resources if you need them.
 
+## Prerequisites
+
+- Do not install opentofu directly. Instead, use [tenv](https://github.com/tofuutils/tenv)
+
 ## Creating a cluster
 
 > **WARNING**
@@ -40,7 +44,7 @@ Based on:
 Process:
 
 1. Change directory to `bootstrap`.
-1. Update the values in the `terraform.tfvars` file.
+1. Verify that the values in `terraform.tfvars` are correct.
 1. Set your AWS_PROFILE to one that has enough access to create the resources:
    ```shell
    export AWS_PROFILE=devopscoop_AdministratorAccess
@@ -107,6 +111,7 @@ Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb
 1. Create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
 1. If it looks good, merge it to the default branch to create your cluster.
 1. TODO: Sometimes the job fails. Running it again and it will probably work. We need to troubleshoot this by running it manually since the error doesn't show up in GitHub Actions output.
+1. Go the the GitHub Action that ran after you merged to the main branch. Look under the "Run tofu apply" step, and scroll to the bottom to find the `aws eks update-kubeconfig` command. Run that command to generate your kubeconfig.
 
 ### examples
 
