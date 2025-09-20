@@ -15,10 +15,14 @@ terraform {
 
   # Naming schemes based on https://github.com/trussworks/terraform-aws-bootstrap?tab=readme-ov-file#using-the-backend
   backend "s3" {
-    bucket         = "${var.cluster_name}-tf-state-${var.region}"
+    bucket = "${var.cluster_name}-tf-state-${var.region}"
+
+    # TODO: We should disable DynamoDB once this issue is resolved: https://github.com/trussworks/terraform-aws-bootstrap/issues/133
     dynamodb_table = "${var.cluster_name}-terraform-state-lock"
-    encrypt        = "true"
-    key            = "${var.cluster_name}/terraform.tfstate"
-    region         = var.region
+
+    use_lockfile = "true"
+    encrypt      = "true"
+    key          = "${var.cluster_name}/terraform.tfstate"
+    region       = var.region
   }
 }
