@@ -41,9 +41,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
         with:
+          # Prefer `tofu_version_file` over `tofu_version`, because the version file ensures that both local and workflow runs are locked to the same version.
           tofu_version_file: cluster/.opentofu-version
-      - run: |
-          tofu version
       # https://github.com/magnetikonline/terraform-github-action-cache-example
       - name: Configure Terraform plugin cache
         run: |
@@ -67,9 +66,11 @@ jobs:
       # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
       - name: Install AWS CLI v2
         run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.28.16.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          ./aws/install
+          if ! command -v aws &>/dev/null; then
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.28.16.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            ./aws/install
+          fi
       - id: plan
         run: tofu plan -no-color -input=false -out=plan.file
         continue-on-error: true
