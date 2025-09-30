@@ -6,9 +6,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - cluster/**
   pull_request:
     branches:
       - main
+    paths:
+      - cluster/**
 defaults:
   run:
     working-directory: cluster
