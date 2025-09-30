@@ -68,7 +68,7 @@ locals {
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/examples/eks-managed-node-group/eks-al2023.tf
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "21.2.0"
+  version = "21.3.1"
 
 
   addons = {
@@ -251,7 +251,7 @@ resource "kubernetes_storage_class_v1" "efs" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "6.0.1"
+  version = "6.4.0"
 
   name = local.name
   cidr = local.vpc_cidr
