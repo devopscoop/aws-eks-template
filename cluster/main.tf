@@ -78,6 +78,9 @@ module "eks" {
       addon_version            = var.eks_addon_version_aws-ebs-csi-driver
       service_account_role_arn = module.ebs_csi_driver_irsa.arn
     }
+    snapshot-controller = {
+      addon_version = var.eks_addon_version_snapshot-controller
+    }
     coredns = {
       addon_version = var.eks_addon_version_coredns
     }

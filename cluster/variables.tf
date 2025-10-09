@@ -23,6 +23,9 @@ variable "eks_addon_version_eks-pod-identity-agent" {
 variable "eks_addon_version_kube-proxy" {
   type = string
 }
+variable "eks_addon_version_snapshot-controller" {
+  type = string
+}
 variable "eks_addon_version_vpc-cni" {
   type = string
 }
