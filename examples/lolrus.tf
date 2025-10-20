@@ -5,7 +5,7 @@
 
 module "lolrus" {
   source  = "terraform-aws-modules/s3-bucket/aws"
-  version = "5.7.0"
+  version = "5.8.1"
 
   bucket = "lolrus-${var.cluster_name}-devopscoop-${var.region}"
   acl    = "private"
