@@ -70,7 +70,7 @@ module "eks" {
   source = "terraform-aws-modules/eks/aws"
 
   # TODO: Stuck at 21.2.0 until https://github.com/terraform-aws-modules/terraform-aws-eks/issues/3516 is fixed.
-  version = "21.2.0"
+  version = "21.4.0"
 
 
   addons = {
