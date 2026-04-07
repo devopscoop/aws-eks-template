@@ -94,11 +94,17 @@ module "eks" {
     vpc-cni = {
       addon_version  = var.eks_addon_version_vpc-cni
       before_compute = true
+      configuration_values = jsonencode({
+        env = {
+          ENABLE_IPv6 = "true"
+        }
+      })
     }
   }
 
   name                   = local.name
   kubernetes_version     = var.cluster_version
+  ip_family              = "ipv6"
   endpoint_public_access = true
 
   # Grant AWS SSO roles appropriate access to the cluster
@@ -268,6 +274,14 @@ module "vpc" {
   enable_nat_gateway = true
   single_nat_gateway = true
 
+  # IPv6
+  enable_ipv6                                    = true
+  public_subnet_assign_ipv6_address_on_creation  = true
+  private_subnet_assign_ipv6_address_on_creation = true
+  create_egress_only_igw                         = true
+  public_subnet_ipv6_prefixes                    = [0, 1, 2]
+  private_subnet_ipv6_prefixes                   = [3, 4, 5]
+
   public_subnet_tags = {
     "kubernetes.io/role/elb" = 1
   }
@@ -295,6 +309,14 @@ module "efs" {
       # relying on the defaults provided for EFS/NFS (2049/TCP + ingress)
       description = "NFS ingress from VPC private subnets"
       cidr_blocks = module.vpc.private_subnets_cidr_blocks
+    }
+    vpc_ipv6 = {
+      description      = "NFS ingress from VPC private subnets (IPv6)"
+      type             = "ingress"
+      from_port        = 2049
+      to_port          = 2049
+      protocol         = "tcp"
+      ipv6_cidr_blocks = module.vpc.private_subnets_ipv6_cidr_blocks
     }
   }
 }
