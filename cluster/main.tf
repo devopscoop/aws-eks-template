@@ -94,11 +94,6 @@ module "eks" {
     vpc-cni = {
       addon_version  = var.eks_addon_version_vpc-cni
       before_compute = true
-      configuration_values = jsonencode({
-        env = {
-          ENABLE_IPV6 = "true"
-        }
-      })
     }
   }
 
