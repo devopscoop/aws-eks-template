@@ -97,10 +97,11 @@ module "eks" {
     }
   }
 
-  name                   = local.name
-  kubernetes_version     = var.cluster_version
-  ip_family              = "ipv6"
-  endpoint_public_access = true
+  name                       = local.name
+  kubernetes_version         = var.cluster_version
+  ip_family                  = "ipv6"
+  create_cni_ipv6_iam_policy = true
+  endpoint_public_access     = true
 
   # Grant AWS SSO roles appropriate access to the cluster
   access_entries = {
