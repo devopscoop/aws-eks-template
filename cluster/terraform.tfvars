@@ -17,5 +17,5 @@ enable_route53 = true
 
 tags_git_repo = "github.com/devopscoop/project1-dev"
 # AWS VPCs require a primary IPv4 CIDR even when using IPv6. The IPv6 CIDR is Amazon-provided.
-vpc_cidr      = "10.0.0.0/16"
-zone_name     = "project1-dev.devops.coop"
+vpc_cidr  = "10.0.0.0/16"
+zone_name = "project1-dev.devops.coop"

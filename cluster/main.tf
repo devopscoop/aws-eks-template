@@ -96,7 +96,7 @@ module "eks" {
       before_compute = true
       configuration_values = jsonencode({
         env = {
-          ENABLE_IPv6 = "true"
+          ENABLE_IPV6 = "true"
         }
       })
     }
