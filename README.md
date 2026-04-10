@@ -69,7 +69,6 @@ https://docs.github.com/en/actions/deployment/security-hardening-your-deployment
 
 While it seems like we should do this with Terraform, we have to do this in order for Terraform to have access to our AWS account, so actually, it just needs to be done manually...
 
-
 1. Log into the AWS Console
 1. Select your region.
 1. If you already have an OIDCProvider named token.actions.githubusercontent.com, you'll need to enter its ARN as the OIDCProviderArn when you create the the stack. You can find the arn with this command:
@@ -77,7 +76,7 @@ While it seems like we should do this with Terraform, we have to do this in orde
    aws iam list-open-id-connect-providers
    ```
 1. Go to CloudFormation
-1. Click Create Stack, then "With new resources (standard)".
+1. Click Create Stack.
 1. Select:
    - Choose an existing template
    - Upload a template file
@@ -101,14 +100,29 @@ Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb
    git checkout -b create_cluster
    ```
 1. Add the role ARN from the configure-aws-credentials section to the `role-to-assume` in .github/workflows/opentofu.yml.
-1. Change directory to `cluster`.
-1. Edit the `terraform.tfvars` file.
-1. Optionally test locally:
+1. Edit the `cluster/terraform.tfvars` file.
+1. Commit your changes, but don't push yet.
    ```
-   tofu init
-   tofu plan
+   git add -A
+   git commit -m "Creating the cluster"
    ```
-1. Create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
+1. Checkout a new branch that's pointed at origin/main, which should be empty at this point:
+  ```
+  git checkout -b github_actions origin/main
+  ```
+1. Add the GitHub Actions file, commit, push:
+  ```
+  git checkout create_cluster .github
+  git add .github
+  git commit -m "Adding GitHub Actions so we can do the rest of the changes via GitOps."
+  git push origin github_actions
+  ```
+1. Create a PR, and merge the branch to main.
+1. Checkout the create_cluster branch again:
+   ```
+   git checkout create_cluster
+   ```
+1. Push it, create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
 1. If it looks good, merge it to the default branch to create your cluster.
 1. TODO: Sometimes the job fails. Running it again and it will probably work. We need to troubleshoot this by running it manually since the error doesn't show up in GitHub Actions output.
 1. Go the the GitHub Action that ran after you merged to the main branch. Look under the "Run tofu apply" step, and scroll to the bottom to find the `aws eks update-kubeconfig` command. Run that command to generate your kubeconfig.
