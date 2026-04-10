@@ -44,9 +44,6 @@ jobs:
           role-to-assume: arn:aws:iam::999999999999:role/github-actions-dev-tf-Role-REDACTED
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
-        with:
-          # Prefer `tofu_version_file` over `tofu_version`, because the version file ensures that both local and workflow runs are locked to the same version.
-          tofu_version_file: cluster/.opentofu-version
       # https://github.com/magnetikonline/terraform-github-action-cache-example
       - name: Configure Terraform plugin cache
         run: |

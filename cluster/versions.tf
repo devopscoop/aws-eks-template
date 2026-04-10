@@ -1,9 +1,11 @@
 # diff --color=always -w -y -W200 <(curl -sL https://raw.githubusercontent.com/aws-ia/terraform-aws-eks-blueprints/main/patterns/stateful/versions.tf) versions.tf | less -R
 
 terraform {
+  required_version = "1.11.6"
   required_providers {
     aws = {
-      source = "hashicorp/aws"
+      source  = "hashicorp/aws"
+      version = "6.40.0"
     }
     helm = {
       source = "hashicorp/helm"
@@ -13,7 +15,8 @@ terraform {
 
     }
     kubernetes = {
-      source = "hashicorp/kubernetes"
+      source  = "hashicorp/kubernetes"
+      version = "3.0.1"
     }
   }
 
