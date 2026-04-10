@@ -27,29 +27,29 @@ jobs:
 
       # If this workflow is running in template repo, use LocalStack to test it.
       - if: github.repository == 'devopscoop/aws-eks-template'
-        uses: LocalStack/setup-localstack@9392b05ddb345894c2e86305fc426566e738c1db # v0.2.4
+        uses: LocalStack/setup-localstack@e23ef40712445a2786428c118c31986bca4e9a40 # v0.3.1
       - if: github.repository == 'devopscoop/aws-eks-template'
-        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           aws-access-key-id: test
           aws-secret-access-key: test
           aws-region: us-east-1
 
       - if: github.repository != 'devopscoop/aws-eks-template'
-        uses: aws-actions/configure-aws-credentials@a03048d87541d1d9fcf2ecf528a4a65ba9bd7838 # v5.0.0
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           # This will be overwritten with the correct region by quickstart.sh.
           aws-region: us-east-2
           # This must be manually updated to our actual ARN.
           role-to-assume: arn:aws:iam::999999999999:role/github-actions-dev-tf-Role-REDACTED
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: opentofu/setup-opentofu@fc711fa910b93cba0f3fbecaafc9f42fd0c411cb # v2.0.0
       # https://github.com/magnetikonline/terraform-github-action-cache-example
       - name: Configure Terraform plugin cache
         run: |
           echo "TF_PLUGIN_CACHE_DIR=$HOME/.terraform.d/plugin-cache" >>"$GITHUB_ENV"
           mkdir --parents "$HOME/.terraform.d/plugin-cache"
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.terraform.d/plugin-cache
@@ -75,7 +75,7 @@ jobs:
       - id: plan
         run: tofu plan -no-color -input=false -out=plan.file
         continue-on-error: true
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         if: github.event_name == 'pull_request'
         env:
           PLAN: "tofu\n${{ steps.plan.outputs.stdout }}"
