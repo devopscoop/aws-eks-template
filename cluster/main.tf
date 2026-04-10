@@ -286,7 +286,7 @@ module "vpc" {
 
 module "efs" {
   source  = "terraform-aws-modules/efs/aws"
-  version = "1.8.0"
+  version = "2.0.0"
 
   creation_token = local.name
   name           = local.name
