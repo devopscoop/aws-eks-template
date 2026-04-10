@@ -22,7 +22,7 @@ provider "registry.opentofu.org/cloudposse/utils" {
 
 provider "registry.opentofu.org/hashicorp/aws" {
   version     = "6.40.0"
-  constraints = ">= 4.36.0, >= 4.47.0, >= 5.0.0, >= 5.35.0, >= 6.0.0, >= 6.11.0, >= 6.28.0, 6.40.0"
+  constraints = ">= 4.36.0, >= 4.47.0, >= 5.0.0, >= 6.0.0, >= 6.11.0, >= 6.12.0, >= 6.28.0, 6.40.0"
   hashes = [
     "h1:WDCDIIeDlPubCYrjPGKuZhi+qtXl2whjDV7c1vqwiU4=",
     "zh:0afa48ff254e87987ab58656c0c9ce408c223df084ca3aa73170eb264c7ffdd8",

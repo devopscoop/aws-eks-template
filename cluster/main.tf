@@ -297,21 +297,20 @@ module "efs" {
   }
   security_group_description = "${local.name} EFS security group"
   security_group_vpc_id      = module.vpc.vpc_id
-  security_group_rules = {
-    vpc = {
-      # relying on the defaults provided for EFS/NFS (2049/TCP + ingress)
-      description = "NFS ingress from VPC private subnets"
-      cidr_blocks = module.vpc.private_subnets_cidr_blocks
+  security_group_ingress_rules = merge(
+    {
+      for i, cidr in module.vpc.private_subnets_cidr_blocks : "vpc_${i}" => {
+        description = "NFS ingress from VPC private subnets"
+        cidr_ipv4   = cidr
+      }
+    },
+    {
+      for i, cidr in module.vpc.private_subnets_ipv6_cidr_blocks : "vpc_ipv6_${i}" => {
+        description = "NFS ingress from VPC private subnets (IPv6)"
+        cidr_ipv6   = cidr
+      }
     }
-    vpc_ipv6 = {
-      description      = "NFS ingress from VPC private subnets (IPv6)"
-      type             = "ingress"
-      from_port        = 2049
-      to_port          = 2049
-      protocol         = "tcp"
-      ipv6_cidr_blocks = module.vpc.private_subnets_ipv6_cidr_blocks
-    }
-  }
+  )
 }
 
 module "ebs_kms_key" {
