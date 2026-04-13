@@ -10,7 +10,7 @@
 # }
 
 module "addon_installation_helm" {
-  source = "git::https://github.com/lablabs/terraform-aws-eks-external-dns.git?ref=v2.1.1"
+  source = "git::https://github.com/lablabs/terraform-aws-eks-external-dns.git?ref=v3.0.0"
 
   enabled           = var.enable_route53
   argo_enabled      = false
