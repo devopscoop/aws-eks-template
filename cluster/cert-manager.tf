@@ -79,7 +79,7 @@ locals {
 # }
 
 module "cert_manager_helm" {
-  source = "git::https://github.com/lablabs/terraform-aws-eks-cert-manager.git?ref=v3.1.0"
+  source = "git::https://github.com/lablabs/terraform-aws-eks-cert-manager.git?ref=v4.0.0"
 
   enabled           = var.enable_route53
   argo_enabled      = false
