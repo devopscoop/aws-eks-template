@@ -26,6 +26,17 @@ locals {
           "server" : "https://acme-v02.api.letsencrypt.org/directory"
         }
       }
+      "shared" : {
+        "region" : "var.region"
+        "roleArn" : "arn"
+        "dnsZones" : [
+          var.zone_name,
+        ]
+        "acme" : {
+          "email" : var.admin_email
+          "server" : "https://acme-v02.api.letsencrypt.org/directory"
+        }
+      }
     }
     "http" : {
       "default-http" : {
@@ -34,6 +45,24 @@ locals {
           "email" : var.admin_email
           "server" : "https://acme-v02.api.letsencrypt.org/directory"
         }
+      }
+    }
+    "cloudflare" : {
+      "default-cloudflare" : {
+        "apiTokenSecretRef" : {
+          "name" : "add_your_name_here"
+          "key" : "add_you_token_here"
+        }
+        "acme" : {
+          "email" : var.admin_email
+          "server" : "https://acme-v02.api.letsencrypt.org/directory"
+          "privateKeySecretRef" : {
+            "name" : "add_secret_name_with_private_key"
+          }
+        }
+        "dnsZones" : [
+          var.zone_name,
+        ]
       }
     }
   })
@@ -96,7 +125,6 @@ module "cert_manager_helm" {
   cluster_issuer_values  = local.cluster_issuer_values
 
   helm_wait_for_jobs = true
-  helm_chart_version = "1.18.2"
 }
 
 # module "cert_manager_argo_kubernetes" {
