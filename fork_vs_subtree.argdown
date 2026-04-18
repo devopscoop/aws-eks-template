@@ -1,0 +1,8 @@
+[Thesis]: Fork this repo instead of using "git substree".
+  + <Common>: Forking a repo is a common, broadly understood paradigm, whereas "git subtree" is a pretty obscure command.
+  + <Workflows>: If you use subtrees, you have manually copy updates to the ".github/workflows" files.
+  + <History>: "git subtree" mangles history worse than git merge upstream, but not sure.
+    - <Debunked>: "git merge upstream" and "git subtree pull" both handle history pretty gracefully. Even "git merge upstream --allow-unrelated-histories" is fine. The git log is amazing.
+  + <Separation>: A separate git repo per EKS cluster feels tidy to some people.
+    - <More repos>: The existence of more git repos feels messy to other people.
+  + <Granular permissions>: Separate repos makes it easier to give granular permissions.
