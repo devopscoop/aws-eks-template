@@ -18,41 +18,26 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 
 ### Quickstart
 
-1. Choose a name for your new cluster. TODO: add link to naming things is easy doc in branch of website repo. Set an env var for the name:
+1. Choose a name for your new cluster. TODO: add link to naming things is easy doc in branch of website repo.
+1. Set some env vars for the quickstart.sh script, for example:
    ```
-   export cluster_name=YOUR_CLUSTERS_NAME
+   export cluster_name='project1-dev'
+   export domain='devops.coop'
+   export github_org='devopscoop'
+   export region='us-east-2'
    ```
 1. Choose an installation method - either Fork or Subtree:
    - Fork
       1. Click the "Fork" button in this repo to create a repo in your organization with the same name as the cluster you are creating.
    - Subtree
       1. Change directory to an existing repo.
-      1. Create a branch:
-         ```
-         git checkout -b create_cluster
-         ```
       1. Use subtree to add this repo as a subdirectory to your existing repo:
          ```
          git subtree add --prefix $cluster_name git@github.com:devopscoop/aws-eks-template.git main
          ```
 1. Run the quickstart.sh script to replace default values with your organization's values:
    ```
-   Usage:
-
-      ./quickstart.sh cluster_name domain github_org region method
-
-   Where:
-
-      method: subtree or fork
-
-   For example:
-
-      ./quickstart.sh project1-dev devops.coop devopscoop us-east-2 subtree
-   ```
-1. Add and commit your files. If you are using a fork, you should be on the main branch right now. If you are using subtree, you should be in the create_cluster branch. Regardless, only commit, do not push yet:
-   ```
-   git add -A
-   git commit -m "quickstart.sh"
+   ./quickstart.sh $cluster_name $domain $github_org $region
    ```
 
 ### bootstrap
