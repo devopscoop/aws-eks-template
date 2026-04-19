@@ -6,3 +6,4 @@
   + <Separation>: A separate git repo per EKS cluster feels tidy to some people.
     - <More repos>: The existence of more git repos feels messy to other people.
   + <Granular permissions>: Separate repos makes it easier to give granular permissions.
+  - <Composability>: git subtree gives the user the freedom to structure their code however they like
