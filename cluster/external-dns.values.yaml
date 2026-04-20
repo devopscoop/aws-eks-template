@@ -4,4 +4,4 @@ policy: "sync"
 
 # TODO: Do we need this?
 #domainFilters:
-#  - "dev.devops.coop"
+#  - "project1-dev.devops.coop"
