@@ -9,7 +9,7 @@ Usage:
 
 For example:
 
-  $0 project1-dev devops.coop devopscoop us-east-2 arn:aws:iam::999999999999:role/github-actions-project1-dev-Role-op9nZF6VBumT 
+  $0 project1-dev devops.coop devopscoop us-east-2 arn:aws:iam::999999999999:role/github-actions-project1-dev-Role-op9nZF6VBumT
 
 EOF
   exit 1

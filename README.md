@@ -26,7 +26,7 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 1. Choose an installation method - either Fork or Subtree:
    - Fork if you want a new git repo for this cluster:
       1. Click the "Fork" button in this repo to create a repo in your organization with the same name as the cluster you are creating.
-      1. In GitHub, click on the Actions tab, then click the button to enable workflows. 
+      1. In GitHub, click on the Actions tab, then click the button to enable workflows.
       1. Create a branch:
          ```
          git checkout -b $branch_name
