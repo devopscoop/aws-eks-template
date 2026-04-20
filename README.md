@@ -1,14 +1,10 @@
 # aws-eks-template
 
-This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It can either be forked, or included in a monorepo à la carte with `git subtree`. There are four directories in this repo that should be processed in order:
-
-1. **bootstrap**: creates an encrypted AWS S3 bucket for OpenTofu's state files, and a DynamoDB table for state locking.
-1. **configure-aws-credentials**: creates an AWS Role that will be used by the CI/CD pipeline.
-1. **cluster**: is executed by the CI/CD pipeline to create the cluster.
-1. **examples**: has additional code to build more AWS resources if you need them.
+This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It can either be forked, or included in a monorepo à la carte with `git subtree`.
 
 ## Prerequisites
 
+- GitHub (TODO: update this repo to work with other git platforms)
 - Do not install opentofu directly. Instead, use [tenv](https://github.com/tofuutils/tenv)
 
 ## Creating a cluster
@@ -16,7 +12,7 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 > **WARNING**
 > Don't `git push` any code unless there is an instruction to do so. If you push code too early, you will either get CI/CD pipeline errors, or you will accidentally build a misconfigured cluster.
 
-### Quickstart
+### Prepare environment
 
 1. Choose a name for your new cluster. TODO: add link to naming things is easy doc in branch of website repo.
 1. Set some env vars for the quickstart.sh script, for example:
@@ -25,27 +21,33 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
    export domain='devops.coop'
    export github_org='devopscoop'
    export region='us-east-2'
+   export branch_name='create_cluster'
    ```
 1. Choose an installation method - either Fork or Subtree:
-   - Fork
+   - Fork if you want a new git repo for this cluster:
       1. Click the "Fork" button in this repo to create a repo in your organization with the same name as the cluster you are creating.
-   - Subtree
-      1. Change directory to an existing repo.
-      1. Use subtree to add this repo as a subdirectory to your existing repo:
+      1. In GitHub, click on the Actions tab, then click the button to enable workflows. 
+      1. Create a branch:
          ```
+         git checkout -b $branch_name
+         ```
+   - Subtree if you want to put this code in an existing infrastructure as code git repo:
+      1. Change directory to your existing repo.
+      1. Checkout a new branch, use subtree to add this repo to a subdirectory, then change directory to it:
+         ```
+         git checkout -b $branch_name
          git subtree add --prefix $cluster_name git@github.com:devopscoop/aws-eks-template.git main
+         cd $cluster_name
          ```
-1. Run the quickstart.sh script to replace default values with your organization's values:
-   ```
-   ./quickstart.sh $cluster_name $domain $github_org $region
-   ```
 
-### bootstrap
+### Bootstrap
 
 Based on:
 
 - <https://github.com/trussworks/terraform-aws-bootstrap>
 - <https://opentofu.org/docs/language/settings/backends/configuration/>
+
+This creates an encrypted AWS S3 bucket for OpenTofu's state files, and a DynamoDB table for state locking.
 
 If you are using a subtree, you probably already have a place to put your OpenTofu state, so you can probably skip this section.
 
@@ -71,13 +73,13 @@ Process:
    git commit -m "Bootstrapping OpenTofu"
    ```
 
-### configure-aws-credentials
+### Configure AWS credentials
 
-https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
+Based on <https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services>.
 
-If you are using a subtree, you probably already have a role with permissions to run your workflow, so you can probably skip this section.
+This creates an AWS Role that will be used by the CI/CD pipeline. While it seems like we should do this with Terraform, we have to do this in order for Terraform to have access to our AWS account, so actually, it just needs to be done manually...
 
-While it seems like we should do this with Terraform, we have to do this in order for Terraform to have access to our AWS account, so actually, it just needs to be done manually...
+If you are using the subtree method, you probably already have a role - you can skip to the last step and set your `role_arn` env var to your existing role.
 
 1. Log into the AWS Console
 1. Select your region.
@@ -100,16 +102,19 @@ While it seems like we should do this with Terraform, we have to do this in orde
 1. Click Next, scroll to the bottom, check the "acknowledge" box, click Next again, scroll down again, then click Submit.
 1. When it's done, click on the Resources tab, then click on the Role name.
 1. Get the ARN of the role that was created, it's probably something like: `arn:aws:iam::999999999999:role/github-actions-project1-dev-Role-op9nZF6VBumT`
-
-### cluster
-
-Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb99477b4f0c64f6c0b6a9bbb6422c6/patterns/stateful
-
-1. Create a branch of this repo - you don't want to commit to main directly, or it will run `tofu apply` without showing you the plan. Note, if you are following the "subtree" process, just use your existing branch:
+1. Create an env var with the ARN, for example:
    ```
-   git checkout -b create_cluster
+   export role_arn="arn:aws:iam::999999999999:role/github-actions-project1-dev-Role-op9nZF6VBumT"
    ```
-1. Add the role ARN from the configure-aws-credentials section to the `role-to-assume` in .github/workflows/opentofu.yml (or opentofy-cluster_name.yml).
+
+### EKS Cluster
+
+Based on <https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb99477b4f0c64f6c0b6a9bbb6422c6/patterns/stateful>.
+
+1. Run the quickstart.sh script to replace default values with your organization's values:
+   ```
+   ./quickstart.sh $cluster_name $domain $github_org $region $role_arn
+   ```
 1. Edit the `cluster/terraform.tfvars` file.
 1. Commit your changes, but don't push yet.
    ```
@@ -137,7 +142,9 @@ Based on https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025eb
 1. TODO: Sometimes the job fails. Running it again and it will probably work. We need to troubleshoot this by running it manually since the error doesn't show up in GitHub Actions output.
 1. Go the the GitHub Action that ran after you merged to the main branch. Look under the "Run tofu apply" step, and scroll to the bottom to find the `aws eks update-kubeconfig` command. Run that command to generate your kubeconfig.
 
-### examples
+### Examples
+
+The `examples` directory has additional code to build more AWS resources if you need them.
 
 ## Destroying a cluster
 
