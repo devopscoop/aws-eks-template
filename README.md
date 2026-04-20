@@ -49,7 +49,7 @@ Based on:
 
 This creates an encrypted AWS S3 bucket for OpenTofu's state files, and a DynamoDB table for state locking.
 
-If you are using a subtree, you probably already have a place to put your OpenTofu state, so you can probably skip this section.
+If you are using the subtree method, you probably already have a bucket - you can skip this section.
 
 Process:
 
@@ -121,13 +121,17 @@ Based on <https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025e
    git add -A
    git commit -m "Creating the cluster"
    ```
+1. Change directory back to the top level of the git repo:
+   ```
+   cd $(git rev-parse --show-toplevel)
+   ```
 1. Checkout a new branch that's pointed at origin/main, which should be empty at this point:
   ```
   git checkout -b github_actions origin/main
   ```
 1. Add the GitHub Actions file, commit, push:
   ```
-  git checkout create_cluster .github
+  git checkout $branch_name .github
   git add .github
   git commit -m "Adding GitHub Actions so we can do the rest of the changes via GitOps."
   git push origin github_actions
@@ -135,7 +139,7 @@ Based on <https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025e
 1. Create a PR, and merge the branch to main.
 1. Checkout the create_cluster branch again:
    ```
-   git checkout create_cluster
+   git checkout $branch_name
    ```
 1. Push it, create a PR, and Opentofu should create a comment on the PR with the output of a `tofu plan`.
 1. If it looks good, merge it to the default branch to create your cluster.
