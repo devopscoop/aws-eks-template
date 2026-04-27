@@ -108,7 +108,8 @@ locals {
 # }
 
 module "cert_manager_helm" {
-  source = "git::https://github.com/lablabs/terraform-aws-eks-cert-manager.git?ref=v4.0.0"
+  source  = "lablabs/eks-cert-manager/aws"
+  version = "4.0.0"
 
   enabled           = var.enable_route53
   argo_enabled      = false
@@ -120,9 +121,11 @@ module "cert_manager_helm" {
   helm_release_name = "cert-manager"
   namespace         = "cert-manager"
 
-  cluster_issuer_enabled = true
-  values                 = local.values
-  cluster_issuer_values  = local.cluster_issuer_values
+  # TODO: The clusterissuer helm chart in this module is currently broken. See https://github.com/lablabs/terraform-aws-eks-cert-manager/issues/40. So, we're installing it using `resource "kubernetes_manifest" "cluster_issuer"` below.
+  cluster_issuer_enabled = false
+
+  values                = local.values
+  cluster_issuer_values = local.cluster_issuer_values
 
   helm_wait_for_jobs = true
 }
@@ -186,4 +189,38 @@ module "cert_manager_helm" {
 #       }
 #     }
 #   }
+# }
+
+# Uncomment this after the cluster has been created.
+# resource "kubernetes_manifest" "cluster_issuer" {
+#   manifest = {
+#     apiVersion = "cert-manager.io/v1"
+#     kind       = "ClusterIssuer"
+#     metadata = {
+#       name = "default-letsencrypt"
+#     }
+#     spec = {
+#       acme = {
+#         server = "https://acme-v02.api.letsencrypt.org/directory"
+#         email  = var.admin_email
+#         privateKeySecretRef = {
+#           name = "letsencrypt-prod"
+#         }
+#         solvers = [
+#           {
+#             dns01 = {
+#               route53 = {
+#                 region         = var.region
+#                 hostedZoneName = var.zone_name
+#               }
+#             }
+#           }
+#         ]
+#       }
+#     }
+#   }
+# 
+#   depends_on = [
+#     module.cert_manager_helm
+#   ]
 # }

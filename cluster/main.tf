@@ -37,6 +37,18 @@ provider "helm" {
 
 data "aws_caller_identity" "current" {}
 
+
+# Fixing "Error: creating KMS Key: operation error KMS: CreateKey, https response error StatusCode: 400, RequestID: 0690d6a8-4211-4a06-a2ad-febc524ae3f1, MalformedPolicyDocumentException: Policy contains a statement with one or more invalid principals."
+# Basically, KMS keys can't be created by an STS assumed Role. We need to get the ARN for the underlying role or user. 
+# This data source provides information on the IAM source role of an STS assumed role
+# For non-role ARNs, this data source simply passes the ARN through issuer ARN
+# This is needed because KMS keys need to be 
+# Ref https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_session_context
+# Ref https://github.com/terraform-aws-modules/terraform-aws-eks/issues/2327#issuecomment-1355581682
+data "aws_iam_session_context" "current" {
+  arn = data.aws_caller_identity.current.arn
+}
+
 data "aws_availability_zones" "available" {
   # Do not include local zones
   filter {
@@ -299,15 +311,15 @@ module "efs" {
   security_group_vpc_id      = module.vpc.vpc_id
   security_group_ingress_rules = merge(
     {
-      for i, cidr in module.vpc.private_subnets_cidr_blocks : "vpc_${i}" => {
+      for i, az in local.azs : "vpc_${i}" => {
         description = "NFS ingress from VPC private subnets"
-        cidr_ipv4   = cidr
+        cidr_ipv4   = module.vpc.private_subnets_cidr_blocks[i]
       }
     },
     {
-      for i, cidr in module.vpc.private_subnets_ipv6_cidr_blocks : "vpc_ipv6_${i}" => {
+      for i, az in local.azs : "vpc_ipv6_${i}" => {
         description = "NFS ingress from VPC private subnets (IPv6)"
-        cidr_ipv6   = cidr
+        cidr_ipv6   = module.vpc.private_subnets_ipv6_cidr_blocks[i]
       }
     }
   )
@@ -320,7 +332,7 @@ module "ebs_kms_key" {
   description = "Customer managed key to encrypt EKS managed node group volumes"
 
   # Policy
-  key_administrators = [data.aws_caller_identity.current.arn]
+  key_administrators = [data.aws_iam_session_context.current.issuer_arn]
   key_service_roles_for_autoscaling = [
     # required for the ASG to manage encrypted volumes for nodes
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
