@@ -4,4 +4,11 @@ policy: "sync"
 
 # TODO: Do we need this?
 #domainFilters:
-#  - "dev.devops.coop"
+#  - "project1-dev.devops.coop"
+
+sources:
+  - service
+  - ingress
+
+  # This is needed for external-dns to create records for Gateway API resources.
+  - gateway-httproute
