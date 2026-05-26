@@ -7,6 +7,69 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 - GitHub (TODO: update this repo to work with other git platforms)
 - Do not install opentofu directly. Instead, use [tenv](https://github.com/tofuutils/tenv)
 
+## Onboarding
+
+### Install the AWS CLI
+
+Follow the [official AWS CLI installation guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) for your operating system.
+
+> **Warning:** Do not use `aws configure` to set up credentials. The official AWS CLI sprinkles long-lived access keys in plaintext across `~/.aws/credentials` - it's like the Easter Bunny for malicious actors, scripts, and AI agents. Use AWS SSO CLI (below) instead — it handles short-lived credentials automatically without writing secrets to disk.
+
+### Install AWS SSO CLI
+
+Install [AWS SSO CLI](https://synfinatic.github.io/aws-sso-cli/latest/demos/) using the method appropriate for your OS (Homebrew, package manager, or binary download).
+
+Run `aws-sso` for the first time to generate a config. It will prompt you interactively:
+
+```
+$ aws-sso
+WARN  No config file found!  Will now prompt you for a basic config...
+
+✔ AWS Partition: Commercial
+
+✔ SSO Start URL: https://d-9999999999.awsapps.com/start
+
+✔ AWS SSO Region (SSORegion): us-east-2
+
+✔ ProfileFormat for Profile/$AWS_PROFILE: Friendly:     {{ FirstItem .AccountName (.AccountAlias | nospace) }}:{{ .RoleName }}
+```
+
+Config is saved to `~/.config/aws-sso/config.yaml`. If the command hangs after saving, it's waiting for you to complete authentication in your browser.
+
+After authenticating, you'll see the list of available roles:
+
+```
+AccountIdPad | AccountAlias | RoleName            | Profile                     | Expires
+=========================================================================================
+999999999999 | devopscoop dev     | ReadOnlyAccess      | devopscoop:ReadOnlyAccess      | Expired
+999999999999 | devopscoop dev     | AdministratorAccess | devopscoop:AdministratorAccess | Expired
+```
+
+### Enable AWS profiles
+
+Run the following to write profile entries into `~/.aws/config` so that standard AWS tooling (including `aws configure list-profiles`) can see them:
+
+```
+$ aws-sso setup profiles
+```
+
+### Use AWS SSO CLI
+
+List available profiles, set one, and verify your identity:
+
+```
+$ aws configure list-profiles
+$ export AWS_PROFILE=devopscoop:AdministratorAccess
+$ aws sts get-caller-identity
+{
+    "UserId": "AROAZZZZZZZZZZZZZZZZZ:user@devops.coop",
+    "Account": "999999999999",
+    "Arn": "arn:aws:sts::999999999999:assumed-role/AWSReservedSSO_AdministratorAccess_0000000000000000/user@devops.coop"
+}
+```
+
+> **Note:** AWS SSO CLI profile names contain colons (e.g. `devopscoop:AdministratorAccess`). If kubeconfig filenames are derived from the profile name, they will also contain colons, which breaks colon-delimited `KUBECONFIG` lists.
+
 ## Creating a cluster
 
 > **WARNING**
