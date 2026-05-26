@@ -13,6 +13,11 @@ locals {
       "fsGroup" : 1001
       "runAsUser" : 1001
     }
+    "config" : {
+      "apiVersion" : "controller.config.cert-manager.io/v1alpha1"
+      "kind" : "ControllerConfiguration"
+      "enableGatewayAPI" : true
+    }
   })
   cluster_issuer_values = yamlencode({
     "route53" : {
@@ -191,36 +196,37 @@ module "cert_manager_helm" {
 #   }
 # }
 
-# Uncomment this after the cluster has been created.
-# resource "kubernetes_manifest" "cluster_issuer" {
-#   manifest = {
-#     apiVersion = "cert-manager.io/v1"
-#     kind       = "ClusterIssuer"
-#     metadata = {
-#       name = "default-letsencrypt"
-#     }
-#     spec = {
-#       acme = {
-#         server = "https://acme-v02.api.letsencrypt.org/directory"
-#         email  = var.admin_email
-#         privateKeySecretRef = {
-#           name = "letsencrypt-prod"
-#         }
-#         solvers = [
-#           {
-#             dns01 = {
-#               route53 = {
-#                 region         = var.region
-#                 hostedZoneName = var.zone_name
-#               }
-#             }
-#           }
-#         ]
-#       }
-#     }
-#   }
-# 
-#   depends_on = [
-#     module.cert_manager_helm
-#   ]
-# }
+resource "kubernetes_manifest" "cluster_issuer" {
+  count = var.stage >= 2 ? 1 : 0
+
+  manifest = {
+    apiVersion = "cert-manager.io/v1"
+    kind       = "ClusterIssuer"
+    metadata = {
+      name = "letsencrypt"
+    }
+    spec = {
+      acme = {
+        server = "https://acme-v02.api.letsencrypt.org/directory"
+        email  = var.admin_email
+        privateKeySecretRef = {
+          name = "letsencrypt-prod"
+        }
+        solvers = [
+          {
+            dns01 = {
+              route53 = {
+                region         = var.region
+                hostedZoneName = var.zone_name
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+
+  depends_on = [
+    module.cert_manager_helm
+  ]
+}

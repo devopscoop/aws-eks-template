@@ -37,6 +37,10 @@ variable "enable_route53" {
   type        = bool
   description = "Enables Route53 as the DNS provider, and installs cert-manager and external-dns with AWS IAM OIDC authentication, so we don't have to manage access keys."
 }
+variable "create_route53_zone" {
+  type    = bool
+  default = true
+}
 variable "region" {
   type = string
 }
@@ -49,4 +53,9 @@ variable "vpc_cidr" {
 }
 variable "zone_name" {
   type = string
+}
+variable "stage" {
+  description = "Deployment stage. The EKS cluster must exist before the kubernetes_manifest in cert-manager.tf can be applied. Regular \"depends\" do not work here, so we have to apply with stage = 1 first, then, when that apply is complete, set stage = 2 and apply again."
+  type        = number
+  default     = 1
 }

@@ -43,6 +43,8 @@ jobs:
           # This must be manually updated to our actual ARN.
           role-to-assume: arn:aws:iam::999999999999:role/github-actions-dev-tf-Role-REDACTED
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: opentofu/setup-opentofu@fc711fa910b93cba0f3fbecaafc9f42fd0c411cb # v2.0.0
       # https://github.com/magnetikonline/terraform-github-action-cache-example
       - name: Configure Terraform plugin cache
@@ -62,7 +64,7 @@ jobs:
       - id: init
         run: tofu init
       - id: validate
-        run: tofu validate -no-color
+        run: tofu validate -no-color 2>&1 | tee validate-output.txt
       # Adding this because module.eks_blueprints_addons.module.aws_efs_csi_driver.helm_release.this[0] requires the AWS CLI.
       # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
       - name: Install AWS CLI v2
@@ -73,14 +75,63 @@ jobs:
             ./aws/install
           fi
       - id: plan
-        run: tofu plan -no-color -input=false -out=plan.file
+        run: |
+          tofu plan -no-color -input=false -out=plan.file 2>&1 | tee plan-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >>"$GITHUB_ENV"
         continue-on-error: true
       - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         if: github.event_name == 'pull_request'
         env:
-          PLAN: "tofu\n${{ steps.plan.outputs.stdout }}"
+          WORKSPACE: ${{ github.workspace }}
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          INIT_OUTCOME: ${{ steps.init.outcome }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          EXIT_CODE: ${{ env.exit_code }}
+          ACTOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          TF_WORKING_DIR: ${{ env.tf_actions_working_dir }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: "const output = `#### OpenTofu Format and Style \U0001F58C\\`${{ steps.fmt.outcome }}\\`\n#### OpenTofu Initialization ⚙️\\`${{ steps.init.outcome }}\\`\n#### OpenTofu Validation \U0001F916\\`${{ steps.validate.outcome }}\\`\n<details><summary>Validation Output</summary>\n\n\\`\\`\\`\\n\n${{ steps.validate.outputs.stdout }}\n\\`\\`\\`\n\n</details>\n\n#### OpenTofu Plan \U0001F4D6\\`${{ steps.plan.outcome }}\\`\n\n<details><summary>Show Plan</summary>\n\n\\`\\`\\`\\n\n${process.env.PLAN}\n\\`\\`\\`\n\n</details>\n\n*Pusher: @${{ github.actor }}, Action: \\`${{ github.event_name }}\\`, Working Directory: \\`${{ env.tf_actions_working_dir }}\\`, Workflow: \\`${{ github.workflow }}\\`*`;\n\ngithub.rest.issues.createComment({\n  issue_number: context.issue.number,\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  body: output\n})\n"
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const wd = path.join(process.env.WORKSPACE, 'cluster');
+            const planOutput = fs.readFileSync(path.join(wd, 'plan-output.txt'), 'utf8');
+            const validateOutput = fs.readFileSync(path.join(wd, 'validate-output.txt'), 'utf8');
+            const planStatus = process.env.EXIT_CODE === '0' ? 'success' : 'failure';
+            const body = [
+              `#### OpenTofu Format and Style: \`${process.env.FMT_OUTCOME}\``,
+              `#### OpenTofu Initialization: \`${process.env.INIT_OUTCOME}\``,
+              `#### OpenTofu Validation: \`${process.env.VALIDATE_OUTCOME}\``,
+              "",
+              "<details><summary>Validation Output</summary>",
+              "",
+              "```",
+              validateOutput,
+              "```",
+              "",
+              "</details>",
+              "",
+              `#### OpenTofu Plan: \`${planStatus}\``,
+              "",
+              "<details><summary>Show Plan</summary>",
+              "",
+              "```",
+              "tofu",
+              planOutput,
+              "```",
+              "",
+              "</details>",
+              "",
+              `*Pusher: @${process.env.ACTOR}, Action: \`${process.env.EVENT_NAME}\`, Working Directory: \`${process.env.TF_WORKING_DIR}\`, Workflow: \`${process.env.WORKFLOW_NAME}\`*`
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            })
       - if: github.ref == 'refs/heads/main'
         run: tofu apply -no-color -input=false plan.file
