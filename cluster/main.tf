@@ -346,7 +346,7 @@ module "ebs_kms_key" {
 
 module "ebs_csi_driver_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.2.1"
+  version = "6.6.0"
 
   attach_ebs_csi_policy = true
   oidc_providers = {
