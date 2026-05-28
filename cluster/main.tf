@@ -111,7 +111,17 @@ module "eks" {
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
 
-  # TODO: Change this to false for better defense in depth. Requires a VPN, bastion host, or some other way of getting to the AWS VPC.
+  # TODO: Change this to false for better defense in depth. Requires a VPN,
+  # bastion host, or some other way of getting to the AWS VPC.
+  #
+  # But, if we disable public access, the GitHub Actions can't access the
+  # cluster, so everything using the "kubernetes" opentofu provider will fail:
+  # external-dns, cert-manager, and storageclass changes... We could move those
+  # all into the fluxcd-template repo, but then we have AWS-specific code in a
+  # repo meant for Kubernetes-only code. And we would have to add a step to
+  # copy and paste IRSA role ARNs into those services during initial deploy.
+  # I'm not sure what the best option is here. For now, I'm just leaving k8s
+  # access as public.
   endpoint_public_access = true
 
   # Grant AWS SSO roles appropriate access to the cluster
