@@ -39,10 +39,10 @@ data "aws_caller_identity" "current" {}
 
 
 # Fixing "Error: creating KMS Key: operation error KMS: CreateKey, https response error StatusCode: 400, RequestID: 0690d6a8-4211-4a06-a2ad-febc524ae3f1, MalformedPolicyDocumentException: Policy contains a statement with one or more invalid principals."
-# Basically, KMS keys can't be created by an STS assumed Role. We need to get the ARN for the underlying role or user. 
+# Basically, KMS keys can't be created by an STS assumed Role. We need to get the ARN for the underlying role or user.
 # This data source provides information on the IAM source role of an STS assumed role
 # For non-role ARNs, this data source simply passes the ARN through issuer ARN
-# This is needed because KMS keys need to be 
+# This is needed because KMS keys need to be
 # Ref https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_session_context
 # Ref https://github.com/terraform-aws-modules/terraform-aws-eks/issues/2327#issuecomment-1355581682
 data "aws_iam_session_context" "current" {
@@ -110,7 +110,9 @@ module "eks" {
   kubernetes_version         = var.cluster_version
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
-  endpoint_public_access     = true
+
+  # TODO: Change this to false for better defense in depth. Requires a VPN, bastion host, or some other way of getting to the AWS VPC.
+  endpoint_public_access = true
 
   # Grant AWS SSO roles appropriate access to the cluster
   access_entries = {
