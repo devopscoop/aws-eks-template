@@ -4,7 +4,6 @@ bucket = "project1-dev-tf-state-us-east-2"
 cluster_name = "project1-dev"
 region       = "us-east-2"
 
-admin_email     = "hostmaster@devops.coop"
 cluster_version = "1.35"
 
 # Use the update_eks_addons.sh script in this directory to automatically update all EKS addon versions in this file.

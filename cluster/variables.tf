@@ -1,9 +1,5 @@
 # Don't set defaults in this file; set them in terraform.tfvars so all values are in a single location.
 
-variable "admin_email" {
-  description = "This is the e-mail address used by cert-manager's ACME issuer. If you aren't using AWS Route53, this variable is not used. The recommended name is \"hostmaster@yourdomain.com\" per https://www.ietf.org/rfc/rfc2142.txt."
-  type        = string
-}
 variable "bucket" {
   type        = string
   description = "Recommended naming scheme is $${project}-$${environment}-tf-state-$${region}"
@@ -53,9 +49,4 @@ variable "vpc_cidr" {
 }
 variable "zone_name" {
   type = string
-}
-variable "stage" {
-  description = "Deployment stage. The EKS cluster must exist before the kubernetes_manifest in cert-manager.tf can be applied. Regular \"depends\" do not work here, so we have to apply with stage = 1 first, then, when that apply is complete, set stage = 2 and apply again."
-  type        = number
-  default     = 1
 }

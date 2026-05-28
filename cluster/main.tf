@@ -9,31 +9,11 @@ provider "aws" {
   }
 }
 
-provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "aws"
-    # This requires the awscli to be installed locally where Terraform is executed
-    args = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
-  }
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "aws"
-      # This requires the awscli to be installed locally where Terraform is executed
-      args = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
-    }
-  }
-}
+# The "kubernetes" and "helm" providers used to be configured here to reach the
+# cluster API. They were removed along with the resources that needed them
+# (cert-manager, external-dns, the AWS Load Balancer Controller, the
+# ClusterIssuer, and the storage classes), which now live in fluxcd-template and
+# are reconciled by Flux from inside the cluster.
 
 data "aws_caller_identity" "current" {}
 
@@ -111,17 +91,17 @@ module "eks" {
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
 
-  # TODO: Change this to false for better defense in depth. Requires a VPN,
-  # bastion host, or some other way of getting to the AWS VPC.
+  # For defense in depth, set this to false. A private endpoint requires a VPN,
+  # bastion host, or some other way into the AWS VPC.
   #
-  # But, if we disable public access, the GitHub Actions can't access the
-  # cluster, so everything using the "kubernetes" opentofu provider will fail:
-  # external-dns, cert-manager, and storageclass changes... We could move those
-  # all into the fluxcd-template repo, but then we have AWS-specific code in a
-  # repo meant for Kubernetes-only code. And we would have to add a step to
-  # copy and paste IRSA role ARNs into those services during initial deploy.
-  # I'm not sure what the best option is here. For now, I'm just leaving k8s
-  # access as public.
+  # This used to be blocked: OpenTofu's "kubernetes" and "helm" providers run
+  # from GitHub Actions (outside the cluster), so a private endpoint broke
+  # everything that talked to the cluster API — external-dns, cert-manager, the
+  # AWS Load Balancer Controller, the ClusterIssuer, and the storage-class
+  # tweaks. Those have all been moved into fluxcd-template, where Flux reconciles
+  # them from inside the cluster, and only the AWS IAM/IRSA roles remain here. A
+  # private endpoint is therefore viable now for anyone with in-VPC access. Left
+  # public by default because this template can't assume a VPN/bastion exists.
   endpoint_public_access = true
 
   # Grant AWS SSO roles appropriate access to the cluster
@@ -206,72 +186,11 @@ module "eks" {
 # Storage Classes
 ################################################################################
 
-resource "kubernetes_annotations" "gp2" {
-  api_version = "storage.k8s.io/v1"
-  kind        = "StorageClass"
-  # This is true because the resources was already created by the ebs-csi-driver addon
-  force = "true"
-
-  metadata {
-    name = "gp2"
-  }
-
-  annotations = {
-    # Modify annotations to remove gp2 as default storage class still retain the class
-    "storageclass.kubernetes.io/is-default-class" = "false"
-  }
-
-  depends_on = [
-    module.eks
-  ]
-}
-
-resource "kubernetes_storage_class_v1" "gp3" {
-  metadata {
-    name = "gp3"
-
-    annotations = {
-      # Annotation to set gp3 as default storage class
-      "storageclass.kubernetes.io/is-default-class" = "true"
-    }
-  }
-
-  storage_provisioner    = "ebs.csi.aws.com"
-  allow_volume_expansion = true
-  reclaim_policy         = "Delete"
-  volume_binding_mode    = "WaitForFirstConsumer"
-
-  parameters = {
-    encrypted = true
-    fsType    = "ext4"
-    type      = "gp3"
-  }
-
-  depends_on = [
-    module.eks
-  ]
-}
-
-resource "kubernetes_storage_class_v1" "efs" {
-  metadata {
-    name = "efs"
-  }
-
-  storage_provisioner = "efs.csi.aws.com"
-  parameters = {
-    provisioningMode = "efs-ap" # Dynamic provisioning
-    fileSystemId     = module.efs.id
-    directoryPerms   = "700"
-  }
-
-  mount_options = [
-    "iam"
-  ]
-
-  depends_on = [
-    module.eks
-  ]
-}
+# The gp2 (un-default), gp3 (default), and efs StorageClasses moved to
+# fluxcd-template (apps/storage-classes), since they use the "kubernetes"
+# provider and need cluster-API access. The efs StorageClass needs the EFS
+# filesystem id, which is exported as the efs_id output (see below) for the Flux
+# manifest to consume.
 
 ################################################################################
 # Supporting Resources
@@ -335,6 +254,13 @@ module "efs" {
       }
     }
   )
+}
+
+# Exported for the Flux `efs` StorageClass (fluxcd-template: apps/storage-classes),
+# which needs the EFS filesystem id as its parameters.fileSystemId.
+output "efs_id" {
+  description = "EFS filesystem id, for the Flux efs StorageClass's fileSystemId parameter."
+  value       = module.efs.id
 }
 
 module "ebs_kms_key" {
