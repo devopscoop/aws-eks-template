@@ -1,11 +1,3 @@
-# The AWS Load Balancer Controller runs inside the cluster and is now installed
-# via Flux (fluxcd-template: apps/aws-load-balancer-controller). All that remains
-# here is the AWS IAM role that its ServiceAccount assumes (IRSA).
-#
-# Wire the exported role ARN into the Flux values.yaml as the
-# `eks.amazonaws.com/role-arn` annotation on the aws-load-balancer-controller
-# ServiceAccount (namespace kube-system).
-
 module "aws_load_balancer_controller_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.2.1"
