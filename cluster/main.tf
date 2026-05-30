@@ -84,6 +84,10 @@ module "eks" {
       addon_version  = var.eks_addon_version_vpc-cni
       before_compute = true
     }
+    aws-efs-csi-driver = {
+      addon_version            = var.eks_addon_version_aws-efs-csi-driver
+      service_account_role_arn = module.efs_csi_driver_irsa.arn
+    }
   }
 
   name                       = local.name
@@ -291,6 +295,20 @@ module "ebs_csi_driver_irsa" {
     main = {
       provider_arn               = module.eks.oidc_provider_arn
       namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
+    }
+  }
+  use_name_prefix = true
+}
+
+module "efs_csi_driver_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "6.2.1"
+
+  attach_efs_csi_policy = true
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:efs-csi-controller-sa"]
     }
   }
   use_name_prefix = true

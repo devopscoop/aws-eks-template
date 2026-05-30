@@ -14,6 +14,9 @@ variable "cluster_version" {
 variable "eks_addon_version_aws-ebs-csi-driver" {
   type = string
 }
+variable "eks_addon_version_aws-efs-csi-driver" {
+  type = string
+}
 variable "eks_addon_version_coredns" {
   type = string
 }
