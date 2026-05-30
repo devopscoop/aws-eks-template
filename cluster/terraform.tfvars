@@ -7,13 +7,13 @@ region       = "us-east-2"
 cluster_version = "1.35"
 
 # Use the update_eks_addons.sh script in this directory to automatically update all EKS addon versions in this file.
-eks_addon_version_aws-ebs-csi-driver     = "v1.58.0-eksbuild.1"
-eks_addon_version_aws-efs-csi-driver     = "v2.1.7-eksbuild.1"
-eks_addon_version_snapshot-controller    = "v8.5.0-eksbuild.3"
-eks_addon_version_coredns                = "v1.13.2-eksbuild.4"
+eks_addon_version_aws-ebs-csi-driver     = "v1.60.1-eksbuild.1"
+eks_addon_version_aws-efs-csi-driver     = "v3.2.0-eksbuild.1"
+eks_addon_version_snapshot-controller    = "v8.5.0-eksbuild.5"
+eks_addon_version_coredns                = "v1.14.3-eksbuild.2"
 eks_addon_version_eks-pod-identity-agent = "v1.3.10-eksbuild.3"
-eks_addon_version_kube-proxy             = "v1.35.3-eksbuild.2"
-eks_addon_version_vpc-cni                = "v1.21.1-eksbuild.7"
+eks_addon_version_kube-proxy             = "v1.35.3-eksbuild.11"
+eks_addon_version_vpc-cni                = "v1.22.1-eksbuild.2"
 
 enable_route53 = true
 
