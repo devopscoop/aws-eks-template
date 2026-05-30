@@ -7,17 +7,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.40.0"
     }
-    helm = {
-      source = "hashicorp/helm"
-
-      # TODO: Stuck at 2.17.0 until https://github.com/lablabs/terraform-aws-eks-cert-manager/issues/29 is fixed.
-      version = "2.17.0"
-
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "3.1.0"
-    }
   }
 
   # Naming schemes based on https://github.com/trussworks/terraform-aws-bootstrap?tab=readme-ov-file#using-the-backend

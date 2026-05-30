@@ -1,94 +1,25 @@
-# diff --color=always -w -y -W200 <(curl -sL https://raw.githubusercontent.com/lablabs/terraform-aws-eks-external-dns/refs/heads/main/examples/basic/main.tf) external-dns.tf | less -R
+module "external_dns_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "6.2.1"
 
-# module "addon_installation_disabled" {
-#   source = "../../"
-#
-#   enabled = false
-#
-#   cluster_identity_oidc_issuer     = module.eks_cluster.eks_cluster_identity_oidc_issuer
-#   cluster_identity_oidc_issuer_arn = module.eks_cluster.eks_cluster_identity_oidc_issuer_arn
-# }
+  count = var.enable_route53 ? 1 : 0
 
-module "addon_installation_helm" {
-  source = "git::https://github.com/lablabs/terraform-aws-eks-external-dns.git?ref=v3.0.0"
+  name            = "external-dns"
+  use_name_prefix = false
 
-  enabled           = var.enable_route53
-  argo_enabled      = false
-  argo_helm_enabled = false
+  attach_external_dns_policy = true
 
-  cluster_identity_oidc_issuer     = module.eks.oidc_provider
-  cluster_identity_oidc_issuer_arn = module.eks.oidc_provider_arn
-
-  values = file("${path.module}/external-dns.values.yaml")
-
-  helm_chart_version = "1.18.0"
-  helm_wait          = true
-  helm_repo_url      = "https://kubernetes-sigs.github.io/external-dns/"
-
-  # Official chart recommends that we use the "external-dns" namespace: https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns
-  namespace = "external-dns"
-
-  # Can't set this in the values file, because it requires a Terraform variable.
-  settings = {
-    txtOwnerId : var.cluster_name
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["external-dns:external-dns"]
+    }
   }
 
+  depends_on = [module.eks]
 }
 
-# module "addon_installation_helm_pod_identity" {
-#   source = "../../"
-#
-#   enabled           = true
-#   argo_enabled      = false
-#   argo_helm_enabled = false
-#
-#   cluster_name = module.eks_cluster.eks_cluster_id
-#
-#   irsa_role_create         = false
-#   pod_identity_role_create = true
-#
-#   values = yamlencode({
-#     # insert sample values here
-#   })
-# }
-#
-# # Please, see README.md and Argo Kubernetes deployment method for implications of using Kubernetes installation method
-# module "addon_installation_argo_kubernetes" {
-#   source = "../../"
-#
-#   enabled           = true
-#   argo_enabled      = true
-#   argo_helm_enabled = false
-#
-#   cluster_identity_oidc_issuer     = module.eks_cluster.eks_cluster_identity_oidc_issuer
-#   cluster_identity_oidc_issuer_arn = module.eks_cluster.eks_cluster_identity_oidc_issuer_arn
-#
-#   values = yamlencode({
-#     # insert sample values here
-#   })
-#
-#   argo_sync_policy = {
-#     automated   = {}
-#     syncOptions = ["CreateNamespace=true"]
-#   }
-# }
-#
-# module "addon_installation_argo_helm" {
-#   source = "../../"
-#
-#   enabled           = true
-#   argo_enabled      = true
-#   argo_helm_enabled = true
-#
-#   cluster_identity_oidc_issuer     = module.eks_cluster.eks_cluster_identity_oidc_issuer
-#   cluster_identity_oidc_issuer_arn = module.eks_cluster.eks_cluster_identity_oidc_issuer_arn
-#
-#   values = yamlencode({
-#     # insert sample values here
-#   })
-#
-#   argo_sync_policy = {
-#     automated   = {}
-#     syncOptions = ["CreateNamespace=true"]
-#   }
-# }
+output "external_dns_role_arn" {
+  description = "IRSA role ARN for external-dns's ServiceAccount. Set this as the eks.amazonaws.com/role-arn annotation on the external-dns ServiceAccount in fluxcd-template (AWS/Route53 provider only)."
+  value       = var.enable_route53 ? module.external_dns_irsa[0].arn : null
+}
