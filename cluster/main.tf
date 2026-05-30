@@ -91,15 +91,18 @@ module "eks" {
   # For defense in depth, set this to false. A private endpoint requires a VPN,
   # bastion host, or some other way into the AWS VPC.
   #
-  # This used to be blocked: OpenTofu's "kubernetes" and "helm" providers run
-  # from GitHub Actions (outside the cluster), so a private endpoint broke
-  # everything that talked to the cluster API — external-dns, cert-manager, the
-  # AWS Load Balancer Controller, the ClusterIssuer, and the storage-class
-  # tweaks. Those have all been moved into fluxcd-template, where Flux reconciles
-  # them from inside the cluster, and only the AWS IAM/IRSA roles remain here. A
-  # private endpoint is therefore viable now for anyone with in-VPC access. Left
-  # public by default because this template can't assume a VPN/bastion exists.
-  endpoint_public_access = true
+  # This one setting was the cause of a fairly major refactor. The "kubernetes"
+  # and "helm" providers run from GitHub Actions (outside the cluster), so a
+  # private endpoint broke everything that talked to the cluster API —
+  # external-dns, cert-manager, the AWS Load Balancer Controller, the
+  # ClusterIssuer, and the storage-class tweaks. Those have all been moved into
+  # fluxcd-template, where Flux reconciles them from inside the cluster, and
+  # only the AWS IAM/IRSA roles remain here. A private endpoint is therefore
+  # viable now for anyone with in-VPC access.
+  #
+  # TODO: This is the reason you can't connect to your cluster. Setup AWS VPN
+  # Client. Security is more important than convenience.
+  endpoint_public_access = false
 
   # Grant AWS SSO roles appropriate access to the cluster
   access_entries = {

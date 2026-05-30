@@ -7,11 +7,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.40.0"
     }
-    # The helm and kubernetes providers were removed: every resource that needed
-    # cluster-API access (cert-manager, external-dns, the AWS Load Balancer
-    # Controller, the ClusterIssuer, and the storage classes) now lives in
-    # fluxcd-template and is reconciled by Flux from inside the cluster. This root
-    # only manages AWS resources, so it no longer needs a public cluster endpoint.
   }
 
   # Naming schemes based on https://github.com/trussworks/terraform-aws-bootstrap?tab=readme-ov-file#using-the-backend
