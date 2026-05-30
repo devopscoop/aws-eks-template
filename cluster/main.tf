@@ -183,16 +183,6 @@ module "eks" {
 }
 
 ################################################################################
-# Storage Classes
-################################################################################
-
-# The gp2 (un-default), gp3 (default), and efs StorageClasses moved to
-# fluxcd-template (apps/storage-classes), since they use the "kubernetes"
-# provider and need cluster-API access. The efs StorageClass needs the EFS
-# filesystem id, which is exported as the efs_id output (see below) for the Flux
-# manifest to consume.
-
-################################################################################
 # Supporting Resources
 ################################################################################
 
