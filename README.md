@@ -208,7 +208,23 @@ Based on <https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025e
 1. If it looks good, merge it to the default branch to create your cluster.
 1. TODO: Sometimes the job fails. Running it again and it will probably work. We need to troubleshoot this by running it manually since the error doesn't show up in GitHub Actions output.
 1. If you're using AWS SSO, uncomment the `AWSReservedSSO_AdministratorAccess` `access_entries` in cluster/main.tf.
-1. cert-manager, external-dns, the AWS Load Balancer Controller, and the storage classes are deployed via Flux from the `fluxcd-template` repo, not by this stack. If you're using Route53, this stack outputs the IRSA role ARNs (`cert_manager_role_arn`, `external_dns_role_arn`, `aws_load_balancer_controller_role_arn`); wire each into the matching Flux app's `values.yaml` as the `eks.amazonaws.com/role-arn` ServiceAccount annotation.
+1. If you're using Route53, copy the IRSA role ARN outputs `cert_manager_role_arn`, `external_dns_role_arn`, `aws_load_balancer_controller_role_arn` into the matching FluxCD app's `values.yaml` as the `eks.amazonaws.com/role-arn` ServiceAccount annotation.
+1. Copy the `efs_id` into the FluxCD `apps/eks-storage-classes/efs.yaml`.
+1. If you're using AWS ECR for your container images, copy `image_reflector_controller_role_arn` to `flux/flux-system/flux-instance.yaml` with something like this:
+   ```
+   spec:
+     kustomize:
+       patches:
+         # IRSA annotation so the image-reflector-controller can authenticate to AWS ECR to poll image tags
+         - patch: |
+             - op: add
+               path: /metadata/annotations
+               value:
+                 eks.amazonaws.com/role-arn: "arn:aws:iam::840602510280:role/flux-image-reflector-controller"
+           target:
+             kind: ServiceAccount
+             name: image-reflector-controller
+   ```
 1. Commit, push, PR, and merge any outstanding changes.
 1. Go the the GitHub Action that ran after you merged to the main branch. Look under the "Run tofu apply" step, and scroll to the bottom to find the `aws eks update-kubeconfig` command. Run that command to generate your kubeconfig.
 1. TODO: aws-sso creates AWS_PROFILE that has a colon in it. This means that output of the `aws eks update-kubeconfig` in our code creates a file with a colon in it. The "Combine all your kubeconfig files" [here](https://gitlab.com/3uzbcqje/website/-/blob/main/cheatsheets/kubernetes.md?ref_type=heads) doesn't work with filenames that have colons, but the KUBECONFIG env var uses colons as it's delimiter. All of this to say that you will have to rename the file, replacing `:` with `_` to use this combining command...
