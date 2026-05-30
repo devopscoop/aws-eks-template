@@ -9,14 +9,7 @@ provider "aws" {
   }
 }
 
-# The "kubernetes" and "helm" providers used to be configured here to reach the
-# cluster API. They were removed along with the resources that needed them
-# (cert-manager, external-dns, the AWS Load Balancer Controller, the
-# ClusterIssuer, and the storage classes), which now live in fluxcd-template and
-# are reconciled by Flux from inside the cluster.
-
 data "aws_caller_identity" "current" {}
-
 
 # Fixing "Error: creating KMS Key: operation error KMS: CreateKey, https response error StatusCode: 400, RequestID: 0690d6a8-4211-4a06-a2ad-febc524ae3f1, MalformedPolicyDocumentException: Policy contains a statement with one or more invalid principals."
 # Basically, KMS keys can't be created by an STS assumed Role. We need to get the ARN for the underlying role or user.
