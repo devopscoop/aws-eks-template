@@ -15,9 +15,9 @@
 ################################################################################
 
 locals {
-  # var.cluster_name is "project1-dev", so this yields the requested
+  # With org_name "devopscoop" and cluster_name "project1-dev", this yields the
   # "devopscoop-project1-dev-" bucket name prefix.
-  loki_bucket_prefix = "devopscoop-${local.name}"
+  loki_bucket_prefix = "${var.org_name}-${local.name}"
 
   loki_buckets = {
     chunks = "${local.loki_bucket_prefix}-loki-chunks"
