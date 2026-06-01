@@ -8,6 +8,10 @@ variable "cluster_name" {
   type        = string
   description = "Recommended naming scheme is $${project}-$${environment}"
 }
+variable "org_name" {
+  type        = string
+  description = "Organization name, used to prefix globally-unique resource names such as S3 buckets."
+}
 variable "cluster_version" {
   type = string
 }

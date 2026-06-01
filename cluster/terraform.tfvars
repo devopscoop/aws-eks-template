@@ -2,6 +2,7 @@ bucket = "project1-dev-tf-state-us-east-2"
 
 # These should be the same as the ones in bootstrap/terraform.tfvars.
 cluster_name = "project1-dev"
+org_name     = "devopscoop"
 region       = "us-east-2"
 
 cluster_version = "1.35"
