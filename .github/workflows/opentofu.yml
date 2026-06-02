@@ -29,14 +29,14 @@ jobs:
       - if: github.repository == 'devopscoop/aws-eks-template'
         uses: LocalStack/setup-localstack@7c8a0cb3405bc58be4c8f763f812aa000bc46303 # v0.3.2
       - if: github.repository == 'devopscoop/aws-eks-template'
-        uses: aws-actions/configure-aws-credentials@99214aa6889fcddfa57764031d71add364327e59 # v6.1.3
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           aws-access-key-id: test
           aws-secret-access-key: test
           aws-region: us-east-1
 
       - if: github.repository != 'devopscoop/aws-eks-template'
-        uses: aws-actions/configure-aws-credentials@99214aa6889fcddfa57764031d71add364327e59 # v6.1.3
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           # This will be overwritten with the correct region by quickstart.sh.
           aws-region: us-east-2
