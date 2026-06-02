@@ -32,9 +32,9 @@ resource "aws_s3_bucket" "loki" {
 }
 
 resource "aws_s3_bucket_public_access_block" "loki" {
-  for_each = aws_s3_bucket.loki
+  for_each = local.loki_buckets
 
-  bucket = each.value.id
+  bucket = aws_s3_bucket.loki[each.key].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -43,9 +43,9 @@ resource "aws_s3_bucket_public_access_block" "loki" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "loki" {
-  for_each = aws_s3_bucket.loki
+  for_each = local.loki_buckets
 
-  bucket = each.value.id
+  bucket = aws_s3_bucket.loki[each.key].id
 
   rule {
     apply_server_side_encryption_by_default {
