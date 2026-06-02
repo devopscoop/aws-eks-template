@@ -7,7 +7,8 @@ module "external_dns_irsa" {
   name            = "external-dns"
   use_name_prefix = false
 
-  attach_external_dns_policy = true
+  attach_external_dns_policy    = true
+  external_dns_hosted_zone_arns = compact([local.hosted_zone_arn])
 
   oidc_providers = {
     main = {

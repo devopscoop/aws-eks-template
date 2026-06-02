@@ -7,7 +7,8 @@ module "cert_manager_irsa" {
   name            = "cert-manager"
   use_name_prefix = false
 
-  attach_cert_manager_policy = true
+  attach_cert_manager_policy    = true
+  cert_manager_hosted_zone_arns = compact([local.hosted_zone_arn])
 
   oidc_providers = {
     main = {
