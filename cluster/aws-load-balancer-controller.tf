@@ -1,6 +1,6 @@
 module "aws_load_balancer_controller_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.2.1"
+  version = "6.6.1"
 
   name            = "aws-load-balancer-controller"
   use_name_prefix = false
