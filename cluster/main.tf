@@ -53,7 +53,7 @@ locals {
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/examples/eks-managed-node-group/eks-al2023.tf
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "21.19.0"
+  version = "21.23.0"
 
   addons = {
     aws-ebs-csi-driver = {
