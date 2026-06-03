@@ -82,7 +82,7 @@ resource "aws_iam_policy" "loki_s3" {
 
 module "loki_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.6.0"
+  version = "6.6.1"
 
   name            = "loki"
   use_name_prefix = false
