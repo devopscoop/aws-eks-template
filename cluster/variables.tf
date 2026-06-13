@@ -36,6 +36,10 @@ variable "eks_addon_version_snapshot-controller" {
 variable "eks_addon_version_vpc-cni" {
   type = string
 }
+variable "enable_image_reflector_controller" {
+  type        = bool
+  description = "Enables the Flux image-reflector-controller IAM role for ECR read access."
+}
 variable "enable_route53" {
   type        = bool
   description = "Enables Route53 as the DNS provider, and installs cert-manager and external-dns with AWS IAM OIDC authentication, so we don't have to manage access keys."

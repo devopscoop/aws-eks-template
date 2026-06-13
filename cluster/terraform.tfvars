@@ -16,7 +16,9 @@ eks_addon_version_eks-pod-identity-agent = "v1.3.10-eksbuild.3"
 eks_addon_version_kube-proxy             = "v1.35.3-eksbuild.11"
 eks_addon_version_vpc-cni                = "v1.22.1-eksbuild.2"
 
-enable_route53 = true
+enable_image_reflector_controller = true
+enable_route53                    = true
+create_route53_zone               = true
 
 tags_git_repo = "github.com/devopscoop/project1-dev"
 # AWS VPCs require a primary IPv4 CIDR even when using IPv6. The IPv6 CIDR is Amazon-provided.
