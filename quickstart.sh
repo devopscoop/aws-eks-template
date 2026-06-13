@@ -54,3 +54,6 @@ if [[ "$method" == "subtree" ]]; then
   perl -pi -e "s# cluster# ${cluster_name}/cluster#" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
 
 fi
+
+# Your fork or subtree of this repo shouldn't have the devopscoop CODEOWNERS file.
+rm "${SCRIPT_DIR}/CODEOWNERS"
