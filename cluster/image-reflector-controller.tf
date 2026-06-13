@@ -22,5 +22,5 @@ module "image_reflector_controller_irsa" {
 
 output "image_reflector_controller_role_arn" {
   description = "IAM role ARN for the Flux image-reflector-controller"
-  value       = module.image_reflector_controller_irsa.arn
+  value       = one(module.image_reflector_controller_irsa[*].arn)
 }
