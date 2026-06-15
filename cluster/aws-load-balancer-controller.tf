@@ -13,8 +13,6 @@ module "aws_load_balancer_controller_irsa" {
       namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
     }
   }
-
-  depends_on = [module.eks]
 }
 
 output "aws_load_balancer_controller_role_arn" {

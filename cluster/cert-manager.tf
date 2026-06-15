@@ -16,8 +16,6 @@ module "cert_manager_irsa" {
       namespace_service_accounts = ["cert-manager:cert-manager"]
     }
   }
-
-  depends_on = [module.eks]
 }
 
 output "cert_manager_role_arn" {

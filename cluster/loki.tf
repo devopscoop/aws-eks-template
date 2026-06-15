@@ -99,8 +99,6 @@ module "loki_irsa" {
       namespace_service_accounts = ["loki:loki"]
     }
   }
-
-  depends_on = [module.eks]
 }
 
 output "loki_bucket_names" {

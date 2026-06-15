@@ -16,8 +16,6 @@ module "image_reflector_controller_irsa" {
   policies = {
     ecr_read = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   }
-
-  depends_on = [module.eks]
 }
 
 output "image_reflector_controller_role_arn" {

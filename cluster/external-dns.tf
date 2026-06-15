@@ -16,8 +16,6 @@ module "external_dns_irsa" {
       namespace_service_accounts = ["external-dns:external-dns"]
     }
   }
-
-  depends_on = [module.eks]
 }
 
 output "external_dns_role_arn" {
