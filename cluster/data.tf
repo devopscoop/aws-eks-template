@@ -29,14 +29,15 @@ locals {
   }
 
   # Flatten {policy => [arns]} into one access entry per (policy, arn) pair.
-  # EKS strips the IAM path from SSO role ARNs, so we strip it here too to avoid
-  # a perpetual diff (arn:...:role/aws-reserved/sso.amazonaws.com/<region>/NAME
-  # becomes arn:...:role/NAME).
+  # The ARNs are passed through as-is, including the SSO IAM path
+  # (arn:...:role/aws-reserved/sso.amazonaws.com/<region>/NAME). EKS validates
+  # that the principal exists, so the full path is required — stripping it
+  # yields an "invalid principal" error.
   sso_access_entries = {
     for pair in flatten([
       for policy, arns in local.sso_access_policies : [
         for arn in arns : {
-          arn    = replace(arn, "/:role/.*//", ":role/")
+          arn    = arn
           policy = policy
         }
       ]
