@@ -40,10 +40,6 @@ locals {
   tags = {
     GitRepo = var.tags_git_repo
   }
-
-  # Needed by examples/helmfile.tf
-  # account_id = data.aws_caller_identity.current.account_id
-
 }
 
 ################################################################################
@@ -104,48 +100,11 @@ module "eks" {
   # Client. Security is more important than convenience.
   endpoint_public_access = false
 
-  # Grant AWS SSO roles appropriate access to the cluster
-  access_entries = {
-
-    # AWSReservedSSO_AdministratorAccess = {
-    #   principal_arn = tolist(data.aws_iam_roles.administratoraccess.arns)[0]
-    #   policy_associations = {
-    #     AmazonEKSClusterAdminPolicy = {
-    #       policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-    #       access_scope = {
-    #         type = "cluster"
-    #       }
-    #     }
-    #   }
-    # }
-
-    # If there are any ViewOnlyAccess roles, uncomment this:
-    # AWSReservedSSO_ViewOnlyAccess = {
-    #   principal_arn = tolist(data.aws_iam_roles.viewonly.arns)[0]
-    #   policy_associations = {
-    #     AmazonEKSClusterAdminPolicy = {
-    #       policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
-    #       access_scope = {
-    #         type = "cluster"
-    #       }
-    #     }
-    #   }
-    # }
-
-    # After creating the cluster and github-actions-${var.cluster_name}-helm role, uncomment this block.
-    # github-actions = {
-    #   principal_arn = "arn:aws:iam::${local.account_id}:role/github-actions-${var.cluster_name}-helm"
-    #   policy_associations = {
-    #     AmazonEKSClusterAdminPolicy = {
-    #       policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-    #       access_scope = {
-    #         type = "cluster"
-    #       }
-    #     }
-    #   }
-    # }
-
-  }
+  # Grant AWS SSO roles appropriate access to the cluster. The mapping of
+  # AWSReservedSSO_* permission sets to cluster-access-policies is discovered
+  # dynamically in data.tf (local.sso_access_entries); add new permission sets
+  # there rather than hardcoding role ARNs here.
+  access_entries = local.sso_access_entries
 
   # Give the Terraform identity admin access to the cluster
   # which will allow resources to be deployed into the cluster
