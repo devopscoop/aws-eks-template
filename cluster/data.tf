@@ -16,25 +16,19 @@ data "aws_iam_roles" "readonly" {
 }
 
 locals {
-  # One EKS access entry per discovered AWSReservedSSO role, keyed by ARN. ARNs
-  # are discovered at plan time, so there's nothing to hardcode; to grant
-  # another permission set access, merge in another comprehension below.
+  # This automatically maps `AWSReservedSSO_*` roles to the appropriate
+  # Kubernetes ClusterRoles.
   #
-  # ARNs are passed through as-is, including the SSO IAM path
-  # (arn:...:role/aws-reserved/sso.amazonaws.com/<region>/NAME). EKS validates
-  # that the principal exists, so the full path is required — stripping it
-  # yields an "invalid principal" error.
-  #
-  # The view roles also join `cluster-viewers`, which fluxcd-template
-  # (apps/cluster-viewers/clusterrolebinding.yaml) binds to the built-in `view`
-  # ClusterRole. Unlike AmazonEKSViewPolicy, `view` aggregates CRD viewers
-  # (Flux, cert-manager, ...) while still excluding Secrets. We keep the managed
-  # policy as a baseline so view access survives until Flux applies that binding.
-  #
-  # A fixed group name (not the ARNs) is the stable contract with that binding:
-  # the ARNs are dynamic and the binding is static YAML in a separate repo that
-  # can't interpolate them (Terraform can't manage RBAC here — no in-cluster
-  # provider, see main.tf).
+  # We are creating a Kubernetes Group named `cluster-viewers` for the
+  # `readonly` and `viewonly` AWS roles, because the AWS SSO ARNs have a
+  # dynamic suffix (ex. "AWSReservedSSO_ReadOnlyAccess_08377194032f7d67"), and
+  # we need a stable name to use in the fluxcd-template git repo to perform a
+  # special ClusterRoleBinding for them. They need binding, because the
+  # `AmazonEKSViewPolicy` doesn't aggregate CRD view roles - see
+  # https://kubernetes.io/docs/reference/access-authn-authz/rbac/#aggregated-clusterroles.
+  # Essentially, without this bullshit, the `readonly` and `viewonly` roles
+  # can't see any CRD objects (flux objects, cert-manager, Envoy httproutes,
+  # etc.)
   sso_access_entries = merge(
     {
       for arn in data.aws_iam_roles.administratoraccess.arns : arn => {
