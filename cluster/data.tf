@@ -51,7 +51,19 @@ locals {
       # `aggregate-to-view` roles while still excluding Secrets — makes those
       # CRDs visible. The admin role needs no group (cluster-admin covers all).
       # The companion ClusterRoleBinding for `cluster-viewers` lives in the
-      # fluxcd-template repo (flux/flux-system/cluster-viewers-rbac.yaml).
+      # fluxcd-template repo (apps/cluster-viewers/clusterrolebinding.yaml).
+      #
+      # We bind a fixed group name rather than the role ARNs directly because
+      # the binding needs a predictable string to target. The ARNs here are
+      # discovered at plan time and carry a random SSO suffix
+      # (AWSReservedSSO_ReadOnlyAccess_<suffix>) that changes if the permission
+      # set is recreated, and there may be several of them. The binding itself
+      # is static GitOps YAML in a *separate* repo (and can't be Terraform-
+      # managed: the kubernetes/helm providers were removed because the API
+      # endpoint is private — see main.tf), so it can't interpolate ARNs known
+      # only to OpenTofu. The constant `cluster-viewers` is the stable contract
+      # between the two: Terraform drops whatever ARNs it finds into the group;
+      # the static RBAC binds the group, oblivious to the concrete ARNs.
       kubernetes_groups = pair.policy == "AmazonEKSViewPolicy" ? ["cluster-viewers"] : []
       policy_associations = {
         (pair.policy) = {
