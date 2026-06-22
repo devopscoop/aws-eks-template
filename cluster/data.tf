@@ -43,6 +43,16 @@ locals {
       ]
       ]) : pair.arn => {
       principal_arn = pair.arn
+      # In addition to the AWS managed policy, bind the SSO view roles to a
+      # Kubernetes group so RBAC can extend their access. AmazonEKSViewPolicy is
+      # a frozen ruleset that does NOT aggregate operator-provided ClusterRoles,
+      # so CRDs (Flux, cert-manager, etc.) are invisible to it. Binding this
+      # group to the built-in `view` ClusterRole — which DOES aggregate
+      # `aggregate-to-view` roles while still excluding Secrets — makes those
+      # CRDs visible. The admin role needs no group (cluster-admin covers all).
+      # The companion ClusterRoleBinding for `cluster-viewers` lives in the
+      # fluxcd-template repo (flux/flux-system/cluster-viewers-rbac.yaml).
+      kubernetes_groups = pair.policy == "AmazonEKSViewPolicy" ? ["cluster-viewers"] : []
       policy_associations = {
         (pair.policy) = {
           policy_arn   = "arn:aws:eks::aws:cluster-access-policy/${pair.policy}"
