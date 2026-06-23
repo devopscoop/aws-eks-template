@@ -16,39 +16,46 @@ data "aws_iam_roles" "readonly" {
 }
 
 locals {
-  # Map each discovered AWSReservedSSO role to its EKS cluster-access-policy.
-  # Add a new entry here to grant another permission set access to the cluster;
-  # OpenTofu discovers the concrete role ARNs (incl. the random suffix) at plan
-  # time, so there's nothing to hardcode.
-  sso_access_policies = {
-    AmazonEKSClusterAdminPolicy = data.aws_iam_roles.administratoraccess.arns
-    AmazonEKSViewPolicy = concat(
-      tolist(data.aws_iam_roles.viewonly.arns),
-      tolist(data.aws_iam_roles.readonly.arns),
-    )
-  }
-
-  # Flatten {policy => [arns]} into one access entry per (policy, arn) pair.
-  # The ARNs are passed through as-is, including the SSO IAM path
-  # (arn:...:role/aws-reserved/sso.amazonaws.com/<region>/NAME). EKS validates
-  # that the principal exists, so the full path is required — stripping it
-  # yields an "invalid principal" error.
-  sso_access_entries = {
-    for pair in flatten([
-      for policy, arns in local.sso_access_policies : [
-        for arn in arns : {
-          arn    = arn
-          policy = policy
-        }
-      ]
-      ]) : pair.arn => {
-      principal_arn = pair.arn
-      policy_associations = {
-        (pair.policy) = {
-          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/${pair.policy}"
-          access_scope = { type = "cluster" }
+  # This automatically maps `AWSReservedSSO_*` roles to the appropriate
+  # Kubernetes ClusterRoles.
+  #
+  # We are creating a Kubernetes Group named `cluster-viewers` for the
+  # `readonly` and `viewonly` AWS roles, because the AWS SSO ARNs have a
+  # dynamic suffix (ex. "AWSReservedSSO_ReadOnlyAccess_08377194032f7d67"), and
+  # we need a stable name to use in the fluxcd-template git repo to perform a
+  # special ClusterRoleBinding for them. They need binding, because the
+  # `AmazonEKSViewPolicy` doesn't aggregate CRD view roles - see
+  # https://kubernetes.io/docs/reference/access-authn-authz/rbac/#aggregated-clusterroles.
+  # Essentially, without this bullshit, the `readonly` and `viewonly` roles
+  # can't see any CRD objects (flux objects, cert-manager, Envoy httproutes,
+  # etc.)
+  sso_access_entries = merge(
+    {
+      for arn in data.aws_iam_roles.administratoraccess.arns : arn => {
+        principal_arn     = arn
+        kubernetes_groups = []
+        policy_associations = {
+          AmazonEKSClusterAdminPolicy = {
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
+          }
         }
       }
-    }
-  }
+    },
+    {
+      for arn in concat(
+        tolist(data.aws_iam_roles.viewonly.arns),
+        tolist(data.aws_iam_roles.readonly.arns),
+        ) : arn => {
+        principal_arn     = arn
+        kubernetes_groups = ["cluster-viewers"]
+        policy_associations = {
+          AmazonEKSViewPolicy = {
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
+            access_scope = { type = "cluster" }
+          }
+        }
+      }
+    },
+  )
 }
