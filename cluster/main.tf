@@ -84,6 +84,13 @@ module "eks" {
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
 
+  # Retain the cluster's CloudWatch control-plane logs for a full year (module
+  # default is 90 days). This supports SOC 2 audit logging under Trust Services
+  # Criteria CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.15
+  # (Logging); 365 days covers the typical 12-month SOC 2 Type II observation
+  # period.
+  cloudwatch_log_group_retention_in_days = 365
+
   # For defense in depth, set this to false. A private endpoint requires a VPN,
   # bastion host, or some other way into the AWS VPC.
   #
