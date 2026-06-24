@@ -9,6 +9,17 @@ provider "aws" {
   }
 }
 
+# Second region, used only for the cross-region replicas of the Loki S3
+# buckets (see loki.tf). Reference it with `provider = aws.replica`.
+provider "aws" {
+  alias  = "replica"
+  region = var.replica_region
+
+  default_tags {
+    tags = local.tags
+  }
+}
+
 data "aws_caller_identity" "current" {}
 
 # Fixing "Error: creating KMS Key: operation error KMS: CreateKey, https response error StatusCode: 400, RequestID: 0690d6a8-4211-4a06-a2ad-febc524ae3f1, MalformedPolicyDocumentException: Policy contains a statement with one or more invalid principals."

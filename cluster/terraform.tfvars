@@ -4,6 +4,8 @@ bucket = "project1-dev-tf-state-us-east-2"
 cluster_name = "project1-dev"
 org_name     = "devopscoop"
 region       = "us-east-2"
+# Region that the Loki S3 buckets replicate to for cross-region redundancy.
+replica_region = "us-west-2"
 
 cluster_version = "1.35"
 
