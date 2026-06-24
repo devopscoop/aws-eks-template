@@ -9,6 +9,17 @@ provider "aws" {
   }
 }
 
+# Second region, used only for the cross-region replicas of the Loki S3
+# buckets (see loki.tf). Reference it with `provider = aws.replica`.
+provider "aws" {
+  alias  = "replica"
+  region = var.replica_region
+
+  default_tags {
+    tags = local.tags
+  }
+}
+
 data "aws_caller_identity" "current" {}
 
 # Fixing "Error: creating KMS Key: operation error KMS: CreateKey, https response error StatusCode: 400, RequestID: 0690d6a8-4211-4a06-a2ad-febc524ae3f1, MalformedPolicyDocumentException: Policy contains a statement with one or more invalid principals."
@@ -83,6 +94,19 @@ module "eks" {
   kubernetes_version         = var.cluster_version
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
+
+  # Emit all EKS control-plane log types to CloudWatch. The module default omits
+  # controllerManager and scheduler; enabling every type (notably the audit log)
+  # supports SOC 2 (CC7.2, System Monitoring) and ISO/IEC 27001:2022 Annex A 8.15
+  # (Logging).
+  enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
+  # Retain the cluster's CloudWatch control-plane logs for a full year (module
+  # default is 90 days). This supports SOC 2 audit logging under Trust Services
+  # Criteria CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.15
+  # (Logging); 365 days covers the typical 12-month SOC 2 Type II observation
+  # period.
+  cloudwatch_log_group_retention_in_days = 365
 
   # For defense in depth, set this to false. A private endpoint requires a VPN,
   # bastion host, or some other way into the AWS VPC.
