@@ -84,6 +84,12 @@ module "eks" {
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
 
+  # Emit all EKS control-plane log types to CloudWatch. The module default omits
+  # controllerManager and scheduler; enabling every type (notably the audit log)
+  # supports SOC 2 (CC7.2, System Monitoring) and ISO/IEC 27001:2022 Annex A 8.15
+  # (Logging).
+  enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
   # Retain the cluster's CloudWatch control-plane logs for a full year (module
   # default is 90 days). This supports SOC 2 audit logging under Trust Services
   # Criteria CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.15
