@@ -37,6 +37,8 @@ jobs:
           persist-credentials: false
       - uses: opentofu/setup-opentofu@847eaa4afeb791b06daa46e8eafa8b1b68d7cfb4 # v2.0.1
         with:
+          # Prefer `tofu_version_file` over `tofu_version`, because the version file ensures that both local and workflow runs are locked to the same version.
+          # Path is resolved relative to the repo root (GITHUB_WORKSPACE), not the job's working-directory.
           tofu_version_file: cluster/.opentofu-version
       # https://github.com/magnetikonline/terraform-github-action-cache-example
       - name: Configure Terraform plugin cache
@@ -73,30 +75,32 @@ jobs:
         continue-on-error: true
       - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         if: github.event_name == 'pull_request'
+        # zizmor's template-injection audit flagged interpolating `${{ ... }}`
+        # expressions directly into the inline `script:` below. GitHub expands
+        # those expressions into the script's source before Node runs it, so an
+        # attacker-controlled value (e.g. github.actor, a branch name, or plan
+        # output) could break out of a string and execute arbitrary JavaScript.
+        # We pass the values as environment variables here and read them via
+        # `process.env.*` in the script, where they're treated as inert data
+        # rather than code. See https://docs.zizmor.sh/audits/#template-injection
         env:
-          WORKSPACE: ${{ github.workspace }}
-          FMT_OUTCOME: ${{ steps.fmt.outcome }}
-          INIT_OUTCOME: ${{ steps.init.outcome }}
-          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
-          PLAN_OUTCOME: ${{ steps.plan.outcome }}
-          EXIT_CODE: ${{ env.exit_code }}
           ACTOR: ${{ github.actor }}
           EVENT_NAME: ${{ github.event_name }}
-          WORKFLOW_NAME: ${{ github.workflow }}
-          TF_WORKING_DIR: ${{ env.tf_actions_working_dir }}
+          EXIT_CODE: ${{ env.exit_code }}
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          TF_WORKING_DIR: cluster
+          WORKFLOW: ${{ github.workflow }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const path = require('path');
-            const wd = path.join(process.env.WORKSPACE, 'cluster');
+            const wd = path.join(process.env.GITHUB_WORKSPACE, process.env.TF_WORKING_DIR);
             const planOutput = fs.readFileSync(path.join(wd, 'plan-output.txt'), 'utf8');
             const validateOutput = fs.readFileSync(path.join(wd, 'validate-output.txt'), 'utf8');
             const planStatus = process.env.EXIT_CODE === '0' ? 'success' : 'failure';
             const body = [
               `#### OpenTofu Format and Style: \`${process.env.FMT_OUTCOME}\``,
-              `#### OpenTofu Initialization: \`${process.env.INIT_OUTCOME}\``,
-              `#### OpenTofu Validation: \`${process.env.VALIDATE_OUTCOME}\``,
               "",
               "<details><summary>Validation Output</summary>",
               "",
@@ -110,14 +114,13 @@ jobs:
               "",
               "<details><summary>Show Plan</summary>",
               "",
-              "```",
-              "tofu",
+              "```tofu",
               planOutput,
               "```",
               "",
               "</details>",
               "",
-              `*Pusher: @${process.env.ACTOR}, Action: \`${process.env.EVENT_NAME}\`, Working Directory: \`${process.env.TF_WORKING_DIR}\`, Workflow: \`${process.env.WORKFLOW_NAME}\`*`
+              `*Pusher: @${process.env.ACTOR}, Action: \`${process.env.EVENT_NAME}\`, Working Directory: \`${process.env.TF_WORKING_DIR}\`, Workflow: \`${process.env.WORKFLOW}\`*`
             ].join('\n');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
