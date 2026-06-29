@@ -58,21 +58,20 @@ jobs:
       - id: init
         run: tofu init
       - id: validate
-        run: tofu validate -no-color 2>&1 | tee validate-output.txt
-      # Adding this because module.eks_blueprints_addons.module.aws_efs_csi_driver.helm_release.this[0] requires the AWS CLI.
-      # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-version.html
-      - name: Install AWS CLI v2
-        run: |
-          if ! command -v aws &>/dev/null; then
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.28.16.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            ./aws/install
-          fi
+        run: tofu validate -no-color
       - id: plan
-        run: |
-          tofu plan -no-color -input=false -out=plan.file 2>&1 | tee plan-output.txt
-          echo "exit_code=${PIPESTATUS[0]}" >>"$GITHUB_ENV"
+        # Write plan output directly to file via tee rather than capturing to a step output variable.
+        # Passing large plan output (e.g. many destroys) via ${{ steps.plan.outputs.stdout }} in an
+        # env var triggers "Argument list too long" (ARG_MAX) when printf/bash tries to expand it.
+        run: tofu plan -no-color -input=false -out=plan.file 2>&1 | tee plan-output.txt; exit "${PIPESTATUS[0]}"
+        # We need to continue-on-error here so we can print the tofu plan output even on failure.
         continue-on-error: true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          name: tofu-plan-output
+          path: aws-eks/cluster/plan-output.txt
+          retention-days: 7
       - uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         if: github.event_name == 'pull_request'
         # zizmor's template-injection audit flagged interpolating `${{ ... }}`
@@ -86,8 +85,8 @@ jobs:
         env:
           ACTOR: ${{ github.actor }}
           EVENT_NAME: ${{ github.event_name }}
-          EXIT_CODE: ${{ env.exit_code }}
           FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
           TF_WORKING_DIR: cluster
           WORKFLOW: ${{ github.workflow }}
         with:
@@ -97,36 +96,27 @@ jobs:
             const path = require('path');
             const wd = path.join(process.env.GITHUB_WORKSPACE, process.env.TF_WORKING_DIR);
             const planOutput = fs.readFileSync(path.join(wd, 'plan-output.txt'), 'utf8');
-            const validateOutput = fs.readFileSync(path.join(wd, 'validate-output.txt'), 'utf8');
-            const planStatus = process.env.EXIT_CODE === '0' ? 'success' : 'failure';
-            const body = [
-              `#### OpenTofu Format and Style: \`${process.env.FMT_OUTCOME}\``,
-              "",
-              "<details><summary>Validation Output</summary>",
-              "",
-              "```",
-              validateOutput,
-              "```",
-              "",
-              "</details>",
-              "",
-              `#### OpenTofu Plan: \`${planStatus}\``,
-              "",
-              "<details><summary>Show Plan</summary>",
-              "",
-              "```tofu",
-              planOutput,
-              "```",
-              "",
-              "</details>",
-              "",
-              `*Pusher: @${process.env.ACTOR}, Action: \`${process.env.EVENT_NAME}\`, Working Directory: \`${process.env.TF_WORKING_DIR}\`, Workflow: \`${process.env.WORKFLOW}\`*`
-            ].join('\n');
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // GitHub PR comments are capped at 65536 chars. Leave ~2000 for the surrounding template.
+            const PLAN_LIMIT = 63000;
+            const planSection = planOutput.length > PLAN_LIMIT
+              ? `Plan output too large for a comment ([download from workflow artifacts](${runUrl}))`
+              : `<details><summary>Show Plan</summary>\n\n\`\`\`tofu\n\n${planOutput}\n\`\`\`\n\n</details>`;
+            const output = [
+              `#### OpenTofu Format and Style \`${process.env.FMT_OUTCOME}\``,
+              `#### OpenTofu Plan \`${process.env.PLAN_OUTCOME}\``,
+              planSection,
+              `*Pusher: @${process.env.ACTOR}, Action: \`${process.env.EVENT_NAME}\`, Working Directory: \`${process.env.TF_WORKING_DIR}\`, Workflow: \`${process.env.WORKFLOW}\`*`,
+            ].join('\n\n');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
-            })
+              body: output,
+            });
+      # We need the workflow to show as failed when the plan fails, so we're breaking it here.
+      - name: Check plan result
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
       - if: github.ref == 'refs/heads/main'
         run: tofu apply -no-color -input=false plan.file
