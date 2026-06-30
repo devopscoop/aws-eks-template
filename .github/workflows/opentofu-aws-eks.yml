@@ -25,6 +25,10 @@ permissions:
 jobs:
   opentofu:
     runs-on: ubuntu-latest
+    # This is a template repo; the cluster isn't real here, so don't run against
+    # it. Repos created from the template have a different name, so the workflow
+    # runs normally for them.
+    if: github.repository != 'devopscoop/aws-eks-template'
     steps:
       - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
