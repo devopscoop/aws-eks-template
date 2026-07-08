@@ -183,6 +183,25 @@ module "vpc" {
   enable_nat_gateway = true
   single_nat_gateway = true
 
+  # Capture VPC Flow Logs for all traffic (accepted and rejected) to S3. S3 is
+  # markedly cheaper than CloudWatch Logs for high-volume flow data. The bucket,
+  # its log-delivery policy, and retention lifecycle are defined in
+  # flow-logs.tf; the module only creates the aws_flow_log resource pointing at
+  # that bucket, so the CloudWatch IAM role and log group are disabled here.
+  # Network flow logging supports SOC 2 (CC7.2, System Monitoring) and ISO/IEC
+  # 27001:2022 Annex A 8.15 (Logging) / 8.16 (Monitoring activities), and aids
+  # incident investigation.
+  enable_flow_log                      = true
+  flow_log_destination_type            = "s3"
+  flow_log_destination_arn             = aws_s3_bucket.flow_logs.arn
+  create_flow_log_cloudwatch_iam_role  = false
+  create_flow_log_cloudwatch_log_group = false
+  flow_log_traffic_type                = "ALL"
+
+  # Bill flow logs at the finest granularity (module default is 600s). One-minute
+  # aggregation gives more precise timelines for security investigations.
+  flow_log_max_aggregation_interval = 60
+
   # IPv6
   enable_ipv6                                    = true
   public_subnet_assign_ipv6_address_on_creation  = true
