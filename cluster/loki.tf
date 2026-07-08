@@ -160,6 +160,16 @@ resource "aws_s3_bucket" "loki_replica" {
   provider = aws.replica
 
   bucket = "${each.value}-replica"
+
+  # The VantaNoAlert tag deactivates the resource in Vanta (marks it out of
+  # scope), with the tag value recorded as the reason. Without it, Vanta's
+  # backup/replication test flags these buckets as needing replication of
+  # their own, even though they exist only as replication destinations.
+  # Note this takes the bucket out of scope for ALL Vanta tests, not just the
+  # replication one.
+  tags = {
+    VantaNoAlert = "Replication destination for ${each.value} - this bucket is the DR copy and does not itself need replication"
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "loki_replica" {
