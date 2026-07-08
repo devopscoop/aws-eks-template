@@ -160,6 +160,16 @@ resource "aws_s3_bucket" "loki_replica" {
   provider = aws.replica
 
   bucket = "${each.value}-replica"
+
+  # The VantaNoAlert tag deactivates the resource in Vanta (marks it out of
+  # scope), with the tag value recorded as the reason. Without it, Vanta's
+  # backup/replication test flags these buckets as needing replication of
+  # their own, even though they exist only as replication destinations.
+  # Note this takes the bucket out of scope for ALL Vanta tests, not just the
+  # replication one.
+  tags = {
+    VantaNoAlert = "Replication destination for ${each.value} - this bucket is the DR copy and does not itself need replication"
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "loki_replica" {
@@ -309,95 +319,6 @@ resource "aws_s3_bucket_replication_configuration" "loki" {
       bucket        = aws_s3_bucket.loki_replica[each.key].arn
       storage_class = "STANDARD"
     }
-  }
-}
-
-################################################################################
-# One-time backfill of pre-existing objects (S3 Batch Replication)
-#
-# Live replication (above) only copies objects written *after* it was enabled.
-# To replicate objects that already existed, run run_loki_batch_replication.sh
-# after applying: it launches one S3 Batch Operations replication job per source
-# bucket, which replicates using each bucket's existing replication rule.
-#
-# Terraform manages only the IAM role the job assumes (below) and publishes the
-# inputs the script needs (loki_batch_replication output); the job itself is
-# created via the AWS CLI because the AWS provider has no batch-job resource.
-################################################################################
-
-data "aws_iam_policy_document" "loki_batch_replication_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["batchoperations.s3.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "loki_batch_replication" {
-  name               = "${local.name}-loki-s3-batch-replication"
-  assume_role_policy = data.aws_iam_policy_document.loki_batch_replication_assume.json
-}
-
-data "aws_iam_policy_document" "loki_batch_replication" {
-  statement {
-    sid = "ReadSourceBuckets"
-    actions = [
-      "s3:GetReplicationConfiguration",
-      "s3:ListBucket",
-    ]
-    resources = [for b in aws_s3_bucket.loki : b.arn]
-  }
-
-  # s3:InitiateReplication is the permission specific to Batch Replication that
-  # lets the job kick off replication for already-existing object versions.
-  statement {
-    sid = "InitiateAndReadSourceObjects"
-    actions = [
-      "s3:InitiateReplication",
-      "s3:GetObjectVersion",
-      "s3:GetObjectVersionForReplication",
-      "s3:GetObjectVersionAcl",
-      "s3:GetObjectVersionTagging",
-    ]
-    resources = [for b in aws_s3_bucket.loki : "${b.arn}/*"]
-  }
-
-  statement {
-    sid = "WriteReplicaObjects"
-    actions = [
-      "s3:ReplicateObject",
-      "s3:ReplicateDelete",
-      "s3:ReplicateTags",
-    ]
-    resources = [for b in aws_s3_bucket.loki_replica : "${b.arn}/*"]
-  }
-}
-
-resource "aws_iam_policy" "loki_batch_replication" {
-  name        = "${local.name}-loki-s3-batch-replication"
-  description = "Allows S3 Batch Operations to backfill the Loki replica buckets"
-  policy      = data.aws_iam_policy_document.loki_batch_replication.json
-}
-
-resource "aws_iam_role_policy_attachment" "loki_batch_replication" {
-  role       = aws_iam_role.loki_batch_replication.name
-  policy_arn = aws_iam_policy.loki_batch_replication.arn
-}
-
-# The S3 Batch Operations job itself is launched out-of-band: the AWS provider
-# has no resource for batch jobs, so run_loki_batch_replication.sh creates one
-# job per source bucket via the AWS CLI, using the role and ARNs published here.
-output "loki_batch_replication" {
-  description = "Inputs for run_loki_batch_replication.sh, which launches the one-time S3 Batch Replication backfill of pre-existing objects."
-  value = {
-    account_id     = data.aws_caller_identity.current.account_id
-    region         = var.region
-    role_arn       = aws_iam_role.loki_batch_replication.arn
-    source_buckets = { for k, b in aws_s3_bucket.loki : k => b.arn }
   }
 }
 
