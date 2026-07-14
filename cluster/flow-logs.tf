@@ -126,6 +126,29 @@ data "aws_iam_policy_document" "flow_logs" {
       values   = ["arn:aws:logs:${local.region}:${data.aws_caller_identity.current.account_id}:*"]
     }
   }
+
+  # Deny all non-HTTPS access so flow log data is always encrypted in transit.
+  # Log delivery and any log consumers use TLS, so this only blocks misuse.
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.flow_logs.arn,
+      "${aws_s3_bucket.flow_logs.arn}/*",
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
 }
 
 resource "aws_s3_bucket_policy" "flow_logs" {
