@@ -4,8 +4,9 @@ terraform {
   required_version = "1.12.3"
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = "6.50.0"
+      source = "hashicorp/aws"
+      # 6.52.0 is the minimum required by terraform-aws-modules/eks 21.24.0.
+      version = "6.52.0"
     }
   }
 

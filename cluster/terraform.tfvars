@@ -22,6 +22,11 @@ enable_image_reflector_controller = true
 enable_route53                    = true
 create_route53_zone               = true
 
+# Email addresses that receive CloudWatch alarm notifications, e.g. high CPU
+# on an EKS node (see cloudwatch-alarms.tf). Each address must confirm the
+# subscription email SNS sends it before notifications are delivered.
+alarm_email_addresses = []
+
 tags_git_repo = "github.com/devopscoop/project1-dev"
 # AWS VPCs require a primary IPv4 CIDR even when using IPv6. The IPv6 CIDR is Amazon-provided.
 vpc_cidr  = "10.0.0.0/16"
