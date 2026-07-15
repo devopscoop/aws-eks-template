@@ -1,5 +1,9 @@
 # Don't set defaults in this file; set them in terraform.tfvars so all values are in a single location.
 
+variable "alarm_email_addresses" {
+  type        = list(string)
+  description = "Email addresses subscribed to the CloudWatch alarms SNS topic (cloudwatch-alarms.tf). Each address must confirm the subscription email SNS sends it before notifications are delivered."
+}
 variable "bucket" {
   type        = string
   description = "Recommended naming scheme is $${project}-$${environment}-tf-state-$${region}"
