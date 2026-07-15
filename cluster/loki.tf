@@ -46,6 +46,44 @@ resource "aws_s3_bucket_public_access_block" "loki" {
   restrict_public_buckets = true
 }
 
+# Deny all non-HTTPS access so log data is always encrypted in transit. Loki
+# (via the AWS SDK) and S3 replication both use TLS, so this only blocks misuse.
+data "aws_iam_policy_document" "loki_https_only" {
+  for_each = local.loki_buckets
+
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.loki[each.key].arn,
+      "${aws_s3_bucket.loki[each.key].arn}/*",
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "loki" {
+  for_each = local.loki_buckets
+
+  bucket = aws_s3_bucket.loki[each.key].id
+  policy = data.aws_iam_policy_document.loki_https_only[each.key].json
+
+  # The public-access block's block_public_policy setting evaluates bucket
+  # policies as they are applied; create it first so this policy isn't rejected.
+  depends_on = [aws_s3_bucket_public_access_block.loki]
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "loki" {
   for_each = local.loki_buckets
 
@@ -182,6 +220,45 @@ resource "aws_s3_bucket_public_access_block" "loki_replica" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# Same HTTPS-only enforcement as the source buckets. S3 replication delivers
+# over TLS, so denying insecure transport does not affect it.
+data "aws_iam_policy_document" "loki_replica_https_only" {
+  for_each = local.loki_buckets
+
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.loki_replica[each.key].arn,
+      "${aws_s3_bucket.loki_replica[each.key].arn}/*",
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "loki_replica" {
+  for_each = local.loki_buckets
+  provider = aws.replica
+
+  bucket = aws_s3_bucket.loki_replica[each.key].id
+  policy = data.aws_iam_policy_document.loki_replica_https_only[each.key].json
+
+  # The public-access block's block_public_policy setting evaluates bucket
+  # policies as they are applied; create it first so this policy isn't rejected.
+  depends_on = [aws_s3_bucket_public_access_block.loki_replica]
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "loki_replica" {
