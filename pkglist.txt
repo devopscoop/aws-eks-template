@@ -1,0 +1,40 @@
+# Arch Linux package list for aws-eks-template — the pacman/AUR equivalent of
+# the Brewfile. Installs every CLI tool used or referenced by this repo.
+#
+# Requires an AUR helper (yay or paru) because tenv-bin and aws-sso-cli-bin
+# are AUR packages; everything else is in the official repos.
+#
+# Usage:
+#   grep -vE '^(#|$)' pkglist.txt | yay -S --needed -
+#   grep -vE '^(#|$)' pkglist.txt | paru -S --needed -
+
+# AWS CLI v2 (`aws`) — extra/aws-cli-v2 (extra/aws-cli is the legacy v1)
+aws-cli-v2
+
+# AWS SSO CLI (`aws-sso`) — AUR; README onboarding, short-lived credentials
+aws-sso-cli-bin
+
+# tenv — AUR; provides `tofu` from .opentofu-version. Per the README, do NOT
+# install opentofu directly.
+tenv-bin
+
+# jq — JSON parsing in cluster/update_eks_addons.sh
+jq
+
+# kubectl — connecting to the cluster with the kubeconfig from `aws eks update-kubeconfig`
+kubectl
+
+# git — fork/subtree workflow in the README, quickstart.sh
+git
+
+# zizmor — GitHub Actions workflow auditing, referenced in .github/workflows/opentofu-aws-eks.yml
+zizmor
+
+# bash — all repo scripts use `#!/usr/bin/env bash`
+bash
+
+# perl — in-place substitutions in quickstart.sh
+perl
+
+# Not packaged for Arch:
+# - Argdown CLI (renders docs/fork_vs_subtree.argdown): npm install -g @argdown/cli

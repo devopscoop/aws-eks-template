@@ -9,15 +9,29 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 
 ## Onboarding
 
-### Install the AWS CLI
+### Install required packages
 
-Follow the [official AWS CLI installation guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) for your operating system.
+This repo ships package manifests that install every CLI tool it uses (`aws`, `aws-sso`, `tenv`, `jq`, `kubectl`, `git`, `zizmor`, `bash`, `perl`):
 
-> **Warning:** Do not use `aws configure` to set up credentials. The official AWS CLI sprinkles long-lived access keys in plaintext across `~/.aws/credentials` - it's like the Easter Bunny for malicious actors, scripts, and AI agents. Use AWS SSO CLI (below) instead — it handles short-lived credentials automatically without writing secrets to disk.
+- macOS, using [Homebrew](https://brew.sh/) and the `Brewfile`:
+
+  ```shell
+  brew bundle
+  ```
+
+- Arch Linux, using the `pkglist.txt`. This requires an AUR helper such as [yay](https://github.com/Jguer/yay) or [paru](https://github.com/Morganamilo/paru), because `tenv-bin` and `aws-sso-cli-bin` are AUR packages:
+
+  ```shell
+  grep -vE '^(#|$)' pkglist.txt | yay -S --needed -
+  ```
+
+On other operating systems, install the tools listed above manually.
 
 ### Install AWS SSO CLI
 
 Install [AWS SSO CLI](https://synfinatic.github.io/aws-sso-cli/latest/demos/) using the method appropriate for your OS (Homebrew, package manager, or binary download).
+
+> **Warning:** Do not use `aws configure` to set up credentials. The official AWS CLI sprinkles long-lived access keys in plaintext across `~/.aws/credentials` - it's like the Easter Bunny for malicious actors, scripts, and AI agents. Use AWS SSO CLI instead — it handles short-lived credentials automatically without writing secrets to disk.
 
 Run `aws-sso` for the first time to generate a config. It will prompt you interactively:
 
