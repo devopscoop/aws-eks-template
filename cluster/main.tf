@@ -140,16 +140,27 @@ module "eks" {
   eks_managed_node_groups = {
     blue = {
 
-      # Note: `disk_size`, and `remote_access` can only be set when using the EKS managed node group default launch template
-      # This module defaults to providing a custom launch template to allow for custom security groups, tag propagation, etc.
-      use_custom_launch_template = false
-      disk_size                  = 50
+      # A custom launch template is required to configure the root volume via
+      # block_device_mappings (KMS-encrypted, below). This means
+      # `disk_size`/`remote_access` can no longer be set directly — the disk is
+      # configured via block_device_mappings below instead.
+      use_custom_launch_template = true
 
-      # Remote access cannot be specified with a launch template
-      # remote_access = {
-      #   ec2_ssh_key               = module.key_pair.key_pair_name
-      #   source_security_group_ids = [aws_security_group.remote_access.id]
-      # }
+      # Replaces the former `disk_size = 50`. Encrypt the root volume with the
+      # customer-managed EBS key (the ASG service-linked role is already granted
+      # use of it in module.ebs_kms_key). AL2023's root device is /dev/xvda.
+      block_device_mappings = {
+        xvda = {
+          device_name = "/dev/xvda"
+          ebs = {
+            volume_size           = 50
+            volume_type           = "gp3"
+            encrypted             = true
+            kms_key_id            = module.ebs_kms_key.key_arn
+            delete_on_termination = true
+          }
+        }
+      }
 
       # instance_types = ["t4g.large"]
       # ami_type       = "AL2023_ARM_64_STANDARD"
