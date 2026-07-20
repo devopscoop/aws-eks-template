@@ -67,7 +67,7 @@ jobs:
         # Write plan output directly to file via tee rather than capturing to a step output variable.
         # Passing large plan output (e.g. many destroys) via ${{ steps.plan.outputs.stdout }} in an
         # env var triggers "Argument list too long" (ARG_MAX) when printf/bash tries to expand it.
-        run: tofu plan -no-color -input=false -out=plan.file 2>&1 | tee plan-output.txt; exit "${PIPESTATUS[0]}"
+        run: tofu plan -concise -no-color -input=false -out=plan.file 2>&1 | tee plan-output.txt; exit "${PIPESTATUS[0]}"
         # We need to continue-on-error here so we can print the tofu plan output even on failure.
         continue-on-error: true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -123,4 +123,4 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: exit 1
       - if: github.ref == 'refs/heads/main'
-        run: tofu apply -no-color -input=false plan.file
+        run: tofu apply -concise -no-color -input=false plan.file
