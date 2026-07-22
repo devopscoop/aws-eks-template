@@ -24,6 +24,17 @@ locals {
 
 resource "aws_s3_bucket" "flow_logs" {
   bucket = local.flow_logs_bucket
+
+  # The VantaNoAlert tag deactivates the resource in Vanta (marks it out of
+  # scope), with the tag value recorded as the reason. Without it, Vanta's
+  # backup/replication test flags this bucket as needing cross-region
+  # replication, even though flow logs are diagnostic network telemetry that
+  # does not warrant a DR copy — expired objects are simply re-delivered.
+  # Note this takes the bucket out of scope for ALL Vanta tests, not just the
+  # replication one.
+  tags = {
+    VantaNoAlert = "VPC flow log storage - diagnostic network telemetry that does not need cross-region replication"
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "flow_logs" {
