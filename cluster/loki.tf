@@ -121,6 +121,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "loki" {
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
     }
+
+    # Deployments that upgraded through this template's cross-region-replication
+    # era have versioning permanently Suspended on these buckets (S3 offers no
+    # way back to unversioned), so every deletion by Loki's compactor leaves a
+    # zero-byte delete marker behind forever; enough of them degrade S3 list
+    # performance. This expires markers that have no object versions beneath
+    # them. No-op for buckets that never had versioning enabled.
+    expiration {
+      expired_object_delete_marker = true
+    }
   }
 }
 
