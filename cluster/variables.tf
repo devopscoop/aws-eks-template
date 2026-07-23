@@ -55,10 +55,6 @@ variable "create_route53_zone" {
 variable "region" {
   type = string
 }
-variable "replica_region" {
-  type        = string
-  description = "AWS region the Loki S3 buckets replicate to for cross-region redundancy. Must differ from region."
-}
 variable "tags_git_repo" {
   type        = string
   description = "All AWS resources will have a tag named GitRepo with this value, so we know which repo created our resources."
