@@ -11,7 +11,7 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 
 ### Install required packages
 
-This repo ships package manifests that install every CLI tool it uses (`aws`, `aws-sso`, `tenv`, `jq`, `kubectl`, `git`, `zizmor`, `bash`, `perl`):
+This repo ships package manifests that install every CLI tool it uses (`aws`, `aws-sso`, `tenv`, `jq`, `kubectl`, `k9s`, `git`, `zizmor`, `bash`, `perl`):
 
 - macOS, using [Homebrew](https://brew.sh/) and the `Brewfile`:
 

@@ -24,6 +24,9 @@ jq
 # kubectl — connecting to the cluster with the kubeconfig from `aws eks update-kubeconfig`
 kubectl
 
+# k9s — terminal UI for browsing and managing the EKS cluster
+k9s
+
 # git — fork/subtree workflow in the README, quickstart.sh
 git
 

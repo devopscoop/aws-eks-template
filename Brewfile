@@ -20,6 +20,9 @@ brew "jq"
 # kubectl - connecting to the cluster with the kubeconfig from `aws eks update-kubeconfig`
 brew "kubernetes-cli"
 
+# k9s - terminal UI for browsing and managing the EKS cluster
+brew "k9s"
+
 # git - fork/subtree workflow in the README, quickstart.sh
 brew "git"
 
