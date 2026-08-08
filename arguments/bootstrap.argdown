@@ -1,0 +1,9 @@
+bootstrap AWS IAM Role:
+  - opentofu
+    + same tooling as the rest of the code
+    - generates a tfstate that we have to manage
+  - cloudformation
+    + official example exists
+    - different code
+  - aws cli
+    + most manual, which is fine, because it's a bootstrapping process...
