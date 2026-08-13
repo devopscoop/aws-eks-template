@@ -164,8 +164,22 @@ module "eks" {
       # burstable instance out of CPU credits — while EC2 status checks keep
       # passing, so the instance sits NotReady until someone terminates it by
       # hand.
+      #
+      # The two thresholds matter on a group this small. EKS only suspends
+      # repair actions on its own when "the node group has more than five
+      # nodes and more than 20% of the nodes in the node group are unhealthy"
+      # (https://docs.aws.amazon.com/eks/latest/userguide/node-repair.html),
+      # so with three nodes that built-in circuit breaker can never trip, and
+      # a correlated failure (bad AMI rollout, CNI regression) would leave
+      # every node eligible for replacement once the 30m repair window
+      # elapses. Repair one node at a time, and stop repairing entirely while
+      # more than one node is unhealthy — a multi-node failure is correlated,
+      # replacement nodes would inherit the same fault, and that situation
+      # needs a human.
       node_repair_config = {
-        enabled = true
+        enabled                            = true
+        max_parallel_nodes_repaired_count  = 1
+        max_unhealthy_node_threshold_count = 1
       }
 
       # instance_types = ["t4g.large"]
