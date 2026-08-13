@@ -38,13 +38,15 @@ data "aws_iam_policy_document" "karpenter_controller_assume_role" {
       identifiers = [module.eks.oidc_provider_arn]
     }
 
-    # Bind the role to exactly the karpenter ServiceAccount in the karpenter
-    # namespace (fluxcd-template deploys the chart there, and the chart's
-    # ServiceAccount name defaults to the release name).
+    # Bind the role to exactly the karpenter ServiceAccount in kube-system —
+    # the namespace the getting-started guide installs into
+    # (KARPENTER_NAMESPACE="kube-system") and where fluxcd-template deploys
+    # the chart. The ServiceAccount name defaults to the release name.
+    # https://karpenter.sh/docs/getting-started/getting-started-with-karpenter/
     condition {
       test     = "StringEquals"
       variable = "${module.eks.oidc_provider}:sub"
-      values   = ["system:serviceaccount:karpenter:karpenter"]
+      values   = ["system:serviceaccount:kube-system:karpenter"]
     }
 
     condition {
@@ -71,9 +73,7 @@ module "karpenter" {
     data.aws_iam_policy_document.karpenter_controller_assume_role.json
   ]
 
-  # IRSA, not Pod Identity — see the comment on the trust policy above. (The
-  # association would also default to the kube-system namespace, not
-  # karpenter.)
+  # IRSA, not Pod Identity — see the comment on the trust policy above.
   create_pod_identity_association = false
 
   # The node role's CNI policy must match the cluster's IP family: main.tf
