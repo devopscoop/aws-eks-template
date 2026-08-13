@@ -130,6 +130,15 @@ module "eks" {
   # which will allow resources to be deployed into the cluster
   enable_cluster_creator_admin_permissions = true
 
+  # Karpenter's EC2NodeClass discovers which security group to attach to the
+  # nodes it launches by this tag (spec.securityGroupSelectorTerms in
+  # fluxcd-template's apps/karpenter-custom-resources). Tag only the node
+  # security group — tagging more than one SG with the same discovery key
+  # makes Karpenter attach all of them.
+  node_security_group_tags = {
+    "karpenter.sh/discovery" = local.name
+  }
+
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
@@ -233,6 +242,11 @@ module "vpc" {
 
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
+    # Karpenter's EC2NodeClass discovers which subnets to launch nodes into by
+    # this tag (spec.subnetSelectorTerms in fluxcd-template's
+    # apps/karpenter-custom-resources). Private subnets only — nodes never
+    # belong in the public ones.
+    "karpenter.sh/discovery" = local.name
   }
 }
 
