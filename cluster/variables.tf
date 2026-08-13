@@ -28,6 +28,9 @@ variable "eks_addon_version_aws-efs-csi-driver" {
 variable "eks_addon_version_coredns" {
   type = string
 }
+variable "eks_addon_version_eks-node-monitoring-agent" {
+  type = string
+}
 variable "eks_addon_version_eks-pod-identity-agent" {
   type = string
 }

@@ -62,6 +62,13 @@ module "eks" {
     coredns = {
       addon_version = var.eks_addon_version_coredns
     }
+    # Publishes granular node health NodeConditions (kernel, networking,
+    # storage faults) that node auto repair (node_repair_config on the node
+    # group below) consumes to decide when to replace a node.
+    # https://docs.aws.amazon.com/eks/latest/userguide/node-health.html
+    eks-node-monitoring-agent = {
+      addon_version = var.eks_addon_version_eks-node-monitoring-agent
+    }
     eks-pod-identity-agent = {
       addon_version  = var.eks_addon_version_eks-pod-identity-agent
       before_compute = true
@@ -149,6 +156,16 @@ module "eks" {
             delete_on_termination = true
           }
         }
+      }
+
+      # Let EKS replace nodes that stay unhealthy (Ready stuck False/Unknown,
+      # or faults reported by the eks-node-monitoring-agent addon above). The
+      # ASG alone cannot catch this: a kubelet can crash or starve — e.g. a
+      # burstable instance out of CPU credits — while EC2 status checks keep
+      # passing, so the instance sits NotReady until someone terminates it by
+      # hand.
+      node_repair_config = {
+        enabled = true
       }
 
       # instance_types = ["t4g.large"]
