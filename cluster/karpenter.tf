@@ -101,13 +101,21 @@ module "karpenter" {
 # apps/karpenter-custom-resources). The getting-started guide creates it
 # imperatively (aws iam create-service-linked-role --aws-service-name
 # spot.amazonaws.com); manage it here instead so forks get it without a manual
-# step. There is exactly one per account: if the account has ever used spot
-# the role already exists and creating it fails with InvalidInput — import it
-# instead:
-#   tofu import aws_iam_service_linked_role.spot \
-#     arn:aws:iam::<account-id>:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot
+# step.
+#
+# The gate exists because there is exactly one such role per account, and any
+# prior spot use — an ASG, the console, another cluster — creates it
+# implicitly. A plan can't see that (name collisions only surface at create),
+# so an unconditional resource would plan green and then fail the apply on
+# main with InvalidInput; since cluster/ is applied by CI only, the tofu
+# import that recovers from this isn't reachable without breaking that rule.
+# Forks in an account that already has the role set
+# create_spot_service_linked_role = false in terraform.tfvars and skip both
+# the create and — equally important in a shared account — the destroy.
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/service-linked-roles-spot-instance-requests.html
 resource "aws_iam_service_linked_role" "spot" {
+  count = var.create_spot_service_linked_role ? 1 : 0
+
   aws_service_name = "spot.amazonaws.com"
 }
 
