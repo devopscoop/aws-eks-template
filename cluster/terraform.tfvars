@@ -20,6 +20,9 @@ eks_addon_version_vpc-cni                   = "v1.23.0-eksbuild.1"
 enable_image_reflector_controller = true
 enable_route53                    = true
 create_route53_zone               = true
+# Set false if the account already has AWSServiceRoleForEC2Spot (any prior
+# spot use creates it implicitly); see cluster/karpenter.tf.
+create_spot_service_linked_role = true
 
 # Email addresses that receive CloudWatch alarm notifications, e.g. high CPU
 # on an EKS node (see cloudwatch-alarms.tf). Each address must confirm the

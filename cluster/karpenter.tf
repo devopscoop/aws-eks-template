@@ -95,6 +95,30 @@ module "karpenter" {
   queue_name = module.eks.cluster_name
 }
 
+# EC2 refuses spot requests until the account-level AWSServiceRoleForEC2Spot
+# service-linked role exists, so this is a prerequisite for "spot" in a
+# NodePool's karpenter.sh/capacity-type requirements (fluxcd-template,
+# apps/karpenter-custom-resources). The getting-started guide creates it
+# imperatively (aws iam create-service-linked-role --aws-service-name
+# spot.amazonaws.com); manage it here instead so forks get it without a manual
+# step.
+#
+# The gate exists because there is exactly one such role per account, and any
+# prior spot use — an ASG, the console, another cluster — creates it
+# implicitly. A plan can't see that (name collisions only surface at create),
+# so an unconditional resource would plan green and then fail the apply on
+# main with InvalidInput; since cluster/ is applied by CI only, the tofu
+# import that recovers from this isn't reachable without breaking that rule.
+# Forks in an account that already has the role set
+# create_spot_service_linked_role = false in terraform.tfvars and skip both
+# the create and — equally important in a shared account — the destroy.
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/service-linked-roles-spot-instance-requests.html
+resource "aws_iam_service_linked_role" "spot" {
+  count = var.create_spot_service_linked_role ? 1 : 0
+
+  aws_service_name = "spot.amazonaws.com"
+}
+
 output "karpenter_role_arn" {
   description = "IRSA role ARN for the Karpenter controller ServiceAccount. Set this as the eks.amazonaws.com/role-arn annotation in fluxcd-template (apps/karpenter/values.yaml, eks marker block)."
   value       = module.karpenter.iam_role_arn

@@ -55,6 +55,10 @@ variable "create_route53_zone" {
   type    = bool
   default = true
 }
+variable "create_spot_service_linked_role" {
+  type        = bool
+  description = "Creates the account-level AWSServiceRoleForEC2Spot service-linked role that spot NodePools depend on. Set false if the account already has it (any prior spot use creates it implicitly) or another stack manages it — see cluster/karpenter.tf."
+}
 variable "region" {
   type = string
 }
