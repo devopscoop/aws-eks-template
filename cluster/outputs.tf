@@ -43,13 +43,29 @@ output "configure_kubectl" {
   # all clusters, then we could perhaps shorten the naming scheme to
   # ${cluster_name}.
   value = <<-EOT
+
+    # Create a kubeconfig
+
     aws eks update-kubeconfig \
-      --alias ${module.eks.cluster_name}_${local.region}_$${AWS_PROFILE} \
-      --kubeconfig ~/.kube/${module.eks.cluster_name}_${local.region}_$${AWS_PROFILE} \
+      --alias ${module.eks.cluster_name} \
+      --kubeconfig ~/.kube/${module.eks.cluster_name} \
       --name ${module.eks.cluster_name} \
       --profile $${AWS_PROFILE} \
       --region ${local.region} \
-      --user-alias ${module.eks.cluster_name}_${local.region}_$${AWS_PROFILE}
+      --user-alias ${module.eks.cluster_name}
+
+    # Optional: Strip the AWS_PROFILE
+
+    The command above hardcodes the AWS_PROFILE in the kubeconfig, see
+    [aws/aws-cli#7087](https://github.com/aws/aws-cli/issues/7087). If you follow
+    the Principle of Least Privilege, and have separate read-only and admin
+    profiles, you could either have a separate kubeconfigs, or you can strip the
+    AWS_PROFILE, and the kubeconfig will use whatever you have configured in your
+    shell.
+
+    ```sh
+    for f in ~/.kube/*; do yq -i '(.users[] | .user.exec) |= del(.env)' "$f"; done
+    ```
   EOT
 
 }

@@ -49,7 +49,7 @@ locals {
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/examples/eks-managed-node-group/eks-al2023.tf
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "21.24.0"
+  version = "21.24.2"
 
   addons = {
     aws-ebs-csi-driver = {
@@ -61,6 +61,13 @@ module "eks" {
     }
     coredns = {
       addon_version = var.eks_addon_version_coredns
+    }
+    # Publishes granular node health NodeConditions (kernel, networking,
+    # storage faults) that node auto repair (node_repair_config on the node
+    # group below) consumes to decide when to replace a node.
+    # https://docs.aws.amazon.com/eks/latest/userguide/node-health.html
+    eks-node-monitoring-agent = {
+      addon_version = var.eks_addon_version_eks-node-monitoring-agent
     }
     eks-pod-identity-agent = {
       addon_version  = var.eks_addon_version_eks-pod-identity-agent
@@ -123,6 +130,15 @@ module "eks" {
   # which will allow resources to be deployed into the cluster
   enable_cluster_creator_admin_permissions = true
 
+  # Karpenter's EC2NodeClass discovers which security group to attach to the
+  # nodes it launches by this tag (spec.securityGroupSelectorTerms in
+  # fluxcd-template's apps/karpenter-custom-resources). Tag only the node
+  # security group — tagging more than one SG with the same discovery key
+  # makes Karpenter attach all of them.
+  node_security_group_tags = {
+    "karpenter.sh/discovery" = local.name
+  }
+
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
@@ -149,6 +165,16 @@ module "eks" {
             delete_on_termination = true
           }
         }
+      }
+
+      # Let EKS replace nodes that stay unhealthy (Ready stuck False/Unknown,
+      # or faults reported by the eks-node-monitoring-agent addon above). The
+      # ASG alone cannot catch this: a kubelet can crash or starve — e.g. a
+      # burstable instance out of CPU credits — while EC2 status checks keep
+      # passing, so the instance sits NotReady until someone terminates it by
+      # hand.
+      node_repair_config = {
+        enabled = true
       }
 
       # instance_types = ["t4g.large"]
@@ -216,6 +242,11 @@ module "vpc" {
 
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
+    # Karpenter's EC2NodeClass discovers which subnets to launch nodes into by
+    # this tag (spec.subnetSelectorTerms in fluxcd-template's
+    # apps/karpenter-custom-resources). Private subnets only — nodes never
+    # belong in the public ones.
+    "karpenter.sh/discovery" = local.name
   }
 }
 
@@ -257,7 +288,7 @@ output "efs_id" {
 
 module "ebs_kms_key" {
   source  = "terraform-aws-modules/kms/aws"
-  version = "4.2.0"
+  version = "4.2.1"
 
   description = "Customer managed key to encrypt EKS managed node group volumes"
 
@@ -276,7 +307,7 @@ module "ebs_kms_key" {
 
 module "ebs_csi_driver_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.6.1"
+  version = "6.8.0"
 
   attach_ebs_csi_policy = true
   oidc_providers = {
@@ -290,7 +321,7 @@ module "ebs_csi_driver_irsa" {
 
 module "efs_csi_driver_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.6.1"
+  version = "6.8.0"
 
   attach_efs_csi_policy = true
   oidc_providers = {

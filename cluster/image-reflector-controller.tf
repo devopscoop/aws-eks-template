@@ -1,6 +1,6 @@
 module "image_reflector_controller_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.6.1"
+  version = "6.8.0"
   count   = var.enable_image_reflector_controller ? 1 : 0
 
   name            = "flux-image-reflector-controller"

@@ -27,6 +27,8 @@ This repo ships package manifests that install every CLI tool it uses (`aws`, `a
 
 On other operating systems, install the tools listed above manually.
 
+I highly recommend that you enable shell autocompletion and configure the `k` alias as described [here](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#enable-shell-autocompletion).
+
 ### Install AWS SSO CLI
 
 Install [AWS SSO CLI](https://synfinatic.github.io/aws-sso-cli/latest/demos/) using the method appropriate for your OS (Homebrew, package manager, or binary download).

@@ -69,7 +69,7 @@ resource "aws_cloudwatch_metric_alarm" "node_cpu" {
 # https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html#compatibility-with-aws-services
 module "alarms_kms_key" {
   source  = "terraform-aws-modules/kms/aws"
-  version = "4.2.0"
+  version = "4.2.1"
 
   description = "Customer managed key to encrypt the ${local.name} CloudWatch alarms SNS topic"
 
