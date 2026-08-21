@@ -53,6 +53,58 @@ resource "aws_cloudwatch_metric_alarm" "node_cpu" {
 }
 
 ################################################################################
+# SQS queue age CloudWatch alarms
+#
+# Vanta's "SQS queues monitored and alarmed" test requires every SQS queue to
+# be covered by a CloudWatch alarm on the ApproximateAgeOfOldestMessage
+# metric, which indicates message processing delays or queue blockage. Queue
+# monitoring supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022
+# Annex A 8.16 (Monitoring activities).
+#
+# The only queue in this root module is Karpenter's interruption queue
+# (karpenter.tf). A healthy Karpenter controller drains it within seconds, so
+# a message sitting for minutes means interruption handling is down and spot
+# reclaims / scheduled maintenance will hit nodes without graceful draining.
+################################################################################
+
+locals {
+  # Alert when the oldest message has been in the queue at least this long for
+  # queue_age_alarm_minutes. The Karpenter sub-module hardcodes the queue's
+  # message_retention_seconds to 300, so this metric can never exceed 300 —
+  # SQS silently drops older messages. The threshold must therefore stay well
+  # below 300 or the alarm could never fire.
+  queue_age_alarm_threshold_seconds = 120
+  queue_age_alarm_minutes           = 10
+}
+
+resource "aws_cloudwatch_metric_alarm" "karpenter_interruption_queue_age" {
+  alarm_name        = "${local.name}-karpenter-interruption-queue-age"
+  alarm_description = "ApproximateAgeOfOldestMessage of SQS queue ${local.name}-karpenter-interruption has been >= ${local.queue_age_alarm_threshold_seconds}s for ${local.queue_age_alarm_minutes} minutes. Karpenter is not consuming interruption events, so spot interruptions and scheduled maintenance will terminate nodes without graceful draining."
+
+  namespace   = "AWS/SQS"
+  metric_name = "ApproximateAgeOfOldestMessage"
+  statistic   = "Maximum"
+
+  dimensions = {
+    QueueName = module.karpenter.queue_name
+  }
+
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = local.queue_age_alarm_threshold_seconds
+  period              = 300
+  evaluation_periods  = local.queue_age_alarm_minutes * 60 / 300
+
+  # SQS only emits metrics for queues that have been active in the last ~6
+  # hours; an idle interruption queue reports nothing at all. Without this the
+  # alarm would sit in INSUFFICIENT_DATA through every quiet stretch — no
+  # data means no stuck messages, so treat it as OK.
+  treat_missing_data = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+}
+
+################################################################################
 # Alarm notification delivery
 #
 # An alarm with no action satisfies the Vanta test but alerts no one, so alarm

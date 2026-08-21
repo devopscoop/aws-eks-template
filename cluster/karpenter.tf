@@ -87,12 +87,15 @@ module "karpenter" {
   node_iam_role_name            = "karpenter-node"
   node_iam_role_use_name_prefix = false
 
-  # Name the interruption queue after the cluster, like the karpenter.sh
-  # getting-started guide does. The module default is "Karpenter-<cluster>";
-  # the bare cluster name is what apps/karpenter/values.yaml documents for
-  # settings.interruptionQueue, and both repos' placeholder replacement
-  # rewrites it on fork.
-  queue_name = module.eks.cluster_name
+  # "<cluster>-karpenter-interruption" so the queue is recognizable in the
+  # console as Karpenter's interruption queue rather than an anonymous
+  # cluster-named queue (the module default is "Karpenter-<cluster>", which
+  # buries what the queue is *for*). This name is what
+  # apps/karpenter/values.yaml sets for settings.interruptionQueue — keep them
+  # in sync; the cluster-name prefix is rewritten by both repos' placeholder
+  # replacement on fork. The queue age alarm in cloudwatch-alarms.tf
+  # references it through module.karpenter.queue_name, so it follows along.
+  queue_name = "${module.eks.cluster_name}-karpenter-interruption"
 }
 
 # EC2 refuses spot requests until the account-level AWSServiceRoleForEC2Spot
