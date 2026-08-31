@@ -2,20 +2,34 @@
 # EC2 CPU CloudWatch alarms
 #
 # Vanta's "Server CPU monitored (AWS)" test requires every EC2 instance to be
-# covered by a CloudWatch alarm on the CPUUtilization metric. The only EC2
-# instances here are the EKS managed node group nodes, which are launched and
-# replaced by an Auto Scaling Group, so per-instance alarms can't be declared
-# statically in Terraform. Instead each node group gets one alarm on the
-# AWS/EC2 CPUUtilization metric scoped to its ASG. The Maximum statistic is
-# the highest per-instance value in each period, so the alarm fires when ANY
-# node in the group runs hot — per-node alerting semantics without
-# per-instance resources. CPU monitoring supports SOC 2 CC7.2 (System
-# Monitoring) and ISO/IEC 27001:2022 Annex A 8.16 (Monitoring activities).
+# covered by a CloudWatch alarm on the CPUUtilization metric. The managed node
+# group nodes are launched and replaced by an Auto Scaling Group, so
+# per-instance alarms can't be declared statically in Terraform. Instead each
+# node group gets one alarm on the AWS/EC2 CPUUtilization metric scoped to its
+# ASG. The Maximum statistic is the highest per-instance value in each period,
+# so the alarm fires when ANY node in the group runs hot — per-node alerting
+# semantics without per-instance resources. CPU monitoring supports SOC 2
+# CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.16 (Monitoring
+# activities).
 #
-# If Vanta keeps flagging individual instances after this is applied (i.e. its
-# test only matches alarms by InstanceId, not by the instance's ASG), the
-# fallback is automation that creates/deletes a per-instance alarm on EC2
-# launch/terminate events — considerably more moving parts, so try this first.
+# Vanta resolves an instance's ASG membership, so this ASG-scoped alarm is
+# sufficient on its own for managed node group instances — it does not also
+# need one dimensioned on InstanceId. Confirmed against a live cluster on
+# 2026-08-31: the test passed for every managed node group instance while
+# this was the only EC2 CPUUtilization alarm in the account.
+#
+# What it cannot cover is an instance belonging to no ASG. On clusters running
+# Karpenter (fluxcd-template's apps/karpenter) nodes are launched through EC2
+# Fleet and carry no aws:autoscaling:groupName tag, so nothing here matches
+# them and Vanta flags each one. Alarming on them would mean per-instance
+# alarms created and deleted as nodes churn — Karpenter consolidates and
+# expires nodes continuously — which needs a reconciler or an EventBridge
+# Lambda holding CloudWatch write credentials. fluxcd-template takes the
+# cheaper route instead and tags those nodes VantaNoAlert in
+# apps/karpenter-custom-resources/ec2nodeclass.yaml, on the grounds that node
+# CPU is already alerted on in-cluster by node-exporter's NodeCPUHighUsage
+# rule. Per the VantaNoAlert note in AGENTS.md, that takes those instances out
+# of scope for every Vanta test, not just this one.
 ################################################################################
 
 locals {
