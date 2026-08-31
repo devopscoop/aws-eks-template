@@ -27,7 +27,14 @@ create_spot_service_linked_role = true
 # Email addresses that receive CloudWatch alarm notifications, e.g. high CPU
 # on an EKS node (see cloudwatch-alarms.tf). Each address must confirm the
 # subscription email SNS sends it before notifications are delivered.
+# Ignored when alarm_topic_arn is set.
 alarm_email_addresses = []
+
+# Existing SNS topic for the CloudWatch alarms to publish to. Empty means this
+# module creates its own topic (and a customer managed KMS key for it). Point
+# it at a topic that already reaches the team — one with a chat or paging
+# integration on it — and the alarms go somewhere a human will see.
+alarm_topic_arn = ""
 
 tags_git_repo = "github.com/devopscoop/project1-dev"
 # AWS VPCs require a primary IPv4 CIDR even when using IPv6. The IPv6 CIDR is Amazon-provided.
