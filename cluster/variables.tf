@@ -2,7 +2,11 @@
 
 variable "alarm_email_addresses" {
   type        = list(string)
-  description = "Email addresses subscribed to the CloudWatch alarms SNS topic (cloudwatch-alarms.tf). Each address must confirm the subscription email SNS sends it before notifications are delivered."
+  description = "Email addresses subscribed to the CloudWatch alarms SNS topic (cloudwatch-alarms.tf). Each address must confirm the subscription email SNS sends it before notifications are delivered. Ignored when alarm_topic_arn is set — subscribe on the existing topic instead."
+}
+variable "alarm_topic_arn" {
+  type        = string
+  description = "ARN of an existing SNS topic for CloudWatch alarms to publish to (cloudwatch-alarms.tf). Set this when the account already runs a notification topic wired to Slack/PagerDuty, so these alarms land where the team already looks. Empty means this module creates its own topic, plus a customer managed KMS key for it, and subscribes alarm_email_addresses."
 }
 variable "bucket" {
   type        = string

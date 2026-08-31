@@ -62,8 +62,8 @@ resource "aws_cloudwatch_metric_alarm" "node_cpu" {
   period              = 300
   evaluation_periods  = local.node_cpu_alarm_minutes * 60 / 300
 
-  alarm_actions = [aws_sns_topic.alarms.arn]
-  ok_actions    = [aws_sns_topic.alarms.arn]
+  alarm_actions = [local.alarm_topic_arn]
+  ok_actions    = [local.alarm_topic_arn]
 }
 
 ################################################################################
@@ -114,26 +114,50 @@ resource "aws_cloudwatch_metric_alarm" "karpenter_interruption_queue_age" {
   # data means no stuck messages, so treat it as OK.
   treat_missing_data = "notBreaching"
 
-  alarm_actions = [aws_sns_topic.alarms.arn]
-  ok_actions    = [aws_sns_topic.alarms.arn]
+  alarm_actions = [local.alarm_topic_arn]
+  ok_actions    = [local.alarm_topic_arn]
 }
 
 ################################################################################
 # Alarm notification delivery
 #
 # An alarm with no action satisfies the Vanta test but alerts no one, so alarm
-# state changes publish to an SNS topic. Subscribe your team via
-# alarm_email_addresses in terraform.tfvars (each address must click the
-# confirmation link SNS emails it), or hang chat/PagerDuty integrations off
-# the topic later.
+# state changes publish to an SNS topic.
+#
+# Which topic depends on alarm_topic_arn. Set it and the alarms publish to a
+# topic that already exists in the account — the right answer whenever there
+# is one with a chat or paging integration hanging off it, because a topic
+# created here starts with no subscribers and stays that way until someone
+# remembers to populate alarm_email_addresses. An unsubscribed topic is the
+# failure mode this variable exists to avoid: the alarms look configured, the
+# Vanta test passes, and nothing reaches a human.
+#
+# Left empty, this module creates its own topic and subscribes
+# alarm_email_addresses to it (each address must click the confirmation link
+# SNS emails it), which keeps the template self-contained for a standalone
+# cluster.
 ################################################################################
+
+locals {
+  # Nothing to create when the caller supplied a topic.
+  create_alarm_topic = var.alarm_topic_arn == ""
+
+  # What every alarm above publishes to.
+  alarm_topic_arn = local.create_alarm_topic ? one(aws_sns_topic.alarms[*].arn) : var.alarm_topic_arn
+}
 
 # CloudWatch alarms cannot publish to an SNS topic encrypted with the
 # AWS-managed alias/aws/sns key, because that key's policy can't be edited to
 # let the CloudWatch service use it. A customer managed key with the
 # cloudwatch.amazonaws.com grants below is the AWS-documented fix:
 # https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html#compatibility-with-aws-services
+#
+# Only relevant to the topic this module creates. A caller-supplied topic
+# brings its own encryption decision, and must already let CloudWatch publish
+# to it — an unencrypted topic does by default.
 module "alarms_kms_key" {
+  count = local.create_alarm_topic ? 1 : 0
+
   source  = "terraform-aws-modules/kms/aws"
   version = "4.2.1"
 
@@ -159,14 +183,32 @@ module "alarms_kms_key" {
 }
 
 resource "aws_sns_topic" "alarms" {
+  count = local.create_alarm_topic ? 1 : 0
+
   name              = "${local.name}-alarms"
-  kms_master_key_id = module.alarms_kms_key.key_id
+  kms_master_key_id = one(module.alarms_kms_key[*].key_id)
 }
 
 resource "aws_sns_topic_subscription" "alarm_emails" {
-  for_each = toset(var.alarm_email_addresses)
+  # alarm_email_addresses only applies to the topic this module owns; on a
+  # caller-supplied topic, subscribe wherever that topic is defined.
+  for_each = local.create_alarm_topic ? toset(var.alarm_email_addresses) : toset([])
 
-  topic_arn = aws_sns_topic.alarms.arn
+  topic_arn = one(aws_sns_topic.alarms[*].arn)
   protocol  = "email"
   endpoint  = each.value
+}
+
+# The topic and its key gained a count above. Without these, adding
+# alarm_topic_arn would plan a destroy-and-recreate of both for every existing
+# consumer that leaves the variable empty, churning the topic ARN and dropping
+# confirmed email subscriptions along with it.
+moved {
+  from = aws_sns_topic.alarms
+  to   = aws_sns_topic.alarms[0]
+}
+
+moved {
+  from = module.alarms_kms_key
+  to   = module.alarms_kms_key[0]
 }
