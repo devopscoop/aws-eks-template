@@ -6,7 +6,7 @@ terraform {
     aws = {
       source = "hashicorp/aws"
       # 6.52.0 is the minimum required by terraform-aws-modules/eks 21.24.0.
-      version = "6.60.0"
+      version = "6.62.0"
     }
   }
 

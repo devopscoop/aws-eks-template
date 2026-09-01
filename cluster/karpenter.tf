@@ -59,7 +59,7 @@ data "aws_iam_policy_document" "karpenter_controller_assume_role" {
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "21.24.2"
+  version = "21.25.0"
 
   cluster_name = module.eks.cluster_name
 

@@ -49,7 +49,7 @@ locals {
 # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/examples/eks-managed-node-group/eks-al2023.tf
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "21.24.2"
+  version = "21.25.0"
 
   addons = {
     aws-ebs-csi-driver = {
@@ -197,7 +197,7 @@ module "eks" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "6.6.1"
+  version = "6.7.2"
 
   name = local.name
   cidr = local.vpc_cidr
@@ -252,7 +252,7 @@ module "vpc" {
 
 module "efs" {
   source  = "terraform-aws-modules/efs/aws"
-  version = "2.2.0"
+  version = "2.2.1"
 
   creation_token = local.name
   name           = local.name
@@ -307,7 +307,7 @@ module "ebs_kms_key" {
 
 module "ebs_csi_driver_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.8.0"
+  version = "6.8.1"
 
   attach_ebs_csi_policy = true
   oidc_providers = {
@@ -321,7 +321,7 @@ module "ebs_csi_driver_irsa" {
 
 module "efs_csi_driver_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.8.0"
+  version = "6.8.1"
 
   attach_efs_csi_policy = true
   oidc_providers = {
