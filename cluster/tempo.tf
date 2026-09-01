@@ -139,7 +139,7 @@ resource "aws_iam_policy" "tempo_s3" {
 
 module "tempo_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.8.0"
+  version = "6.8.1"
 
   name            = "tempo"
   use_name_prefix = false
