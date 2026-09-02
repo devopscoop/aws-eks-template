@@ -63,6 +63,14 @@ variable "create_spot_service_linked_role" {
   type        = bool
   description = "Creates the account-level AWSServiceRoleForEC2Spot service-linked role that spot NodePools depend on. Set false if the account already has it (any prior spot use creates it implicitly) or another stack manages it — see cluster/karpenter.tf."
 }
+variable "cnpg_backup_replication" {
+  type        = bool
+  description = "Replicates every CNPG database backup bucket to cnpg_backup_replica_region (cnpg-databases.tf). Off, each bucket carries a VantaNoAlert tag instead; on, region loss is covered and Vanta's backup/replication test passes for real. Dev clusters typically leave this off; prod clusters turn it on."
+}
+variable "cnpg_backup_replica_region" {
+  type        = string
+  description = "Destination region for CNPG backup replication. Pick a region different from region, or the replication protects against nothing. Still required (but unused) when cnpg_backup_replication is false, per this repo's no-defaults variables convention."
+}
 variable "region" {
   type = string
 }
