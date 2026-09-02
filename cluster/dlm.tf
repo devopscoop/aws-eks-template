@@ -47,58 +47,63 @@ resource "aws_iam_role_policy" "dlm" {
   policy = data.aws_iam_policy_document.dlm_permissions.json
 }
 
-# One DLM *default* policy: snapshot every EBS volume in the region except
-# boot volumes and volumes tagged dlm-exclude=true, daily, keep 14 days.
+# Snapshot every volume tagged Backup=dlm, daily, keep 14. Opt-in by tag:
+# the key asks how a volume is backed up and the value answers, so a volume
+# with no Backup tag at all is visibly unaccounted for — auditable with one
+# describe-volumes query.
 #
-# A default policy rather than a classic (STANDARD) one because classic
-# policies select by target_tags only — the API has no exclusion mechanism
-# for them — and we need opt-out: CNPG databases are backed up by barman to
-# S3 (cnpg-backups.tf + fluxcd-template's apps/goalert), so daily EBS
-# snapshots of their volumes are redundant spend, and a crash-consistent
-# snapshot of one replica's volume is a restore footgun sitting next to
-# barman's point-in-time recovery. The dlm-exclude=true tag comes from
-# fluxcd-template's gp3-dangerous StorageClass (tagSpecification_1). Tags
-# apply at provision time only: volumes that existed before a workload moved
-# to that class keep getting snapshotted until retro-tagged by hand — the
-# safe failure mode.
+# The tag comes from fluxcd-template's StorageClasses (tagSpecification_1):
+# the default gp3 class applies Backup=dlm, so everything is covered unless
+# it deliberately opts out by using gp3-dangerous, which applies Backup=none
+# instead — CNPG databases do, because barman already backs them up to S3
+# (cnpg-backups.tf + fluxcd-template's apps/goalert), making daily EBS
+# snapshots of their volumes redundant spend, and a crash-consistent
+# snapshot of one replica's volume a restore footgun sitting next to
+# barman's point-in-time recovery.
 #
-# Scope note: this covers every non-boot volume in the region, not just EKS
-# CSI volumes like the classic policy it replaced. In this template's
-# dedicated-account layout that is the same set, but a subtree consumer
-# sharing an account with other EC2 workloads inherits snapshots of those
-# volumes too — more backup, not less; still, know it's happening.
-#
-# Migration from the classic policy: the old policy's snapshots stop being
-# pruned once it's destroyed (DLM only deletes snapshots of a live policy);
-# delete the leftover SnapshotCreator=DLM snapshots once this policy has
-# coverage.
-resource "aws_dlm_lifecycle_policy" "default" {
-  # DLM descriptions only allow [0-9A-Za-z _-], so no "=true" here.
-  description        = "Backup all volumes except boot volumes and dlm-exclude tagged volumes"
+# Two things the opt-in design asks of operators:
+#   - Tags apply at provision time only. Volumes that predate the Backup tag
+#     (provisioned before fluxcd-template's gp3 class carried it) fall out of
+#     the policy until retro-tagged. This lists the unaccounted-for volumes:
+#       aws ec2 describe-volumes \
+#         --filters Name=tag:ebs.csi.aws.com/cluster,Values=true \
+#         --query 'Volumes[?length(Tags[?Key==`Backup`])==`0`].VolumeId'
+#     Tag those Backup=dlm by hand, except volumes whose backups genuinely
+#     live elsewhere (CNPG's — tag those Backup=none so they stay accounted
+#     for).
+#   - Any future EBS StorageClass must carry a Backup tag, or its volumes
+#     are silently unprotected. The EKS-created gp2 class has no
+#     tagSpecification — it is non-default and deliberately unused; don't
+#     put workloads on it.
+resource "aws_dlm_lifecycle_policy" "eks" {
+  description        = "Backup all volumes tagged Backup dlm"
   execution_role_arn = aws_iam_role.dlm.arn
-  default_policy     = "VOLUME"
 
   policy_details {
-    policy_language = "SIMPLIFIED"
-    resource_type   = "VOLUME"
+    resource_types = ["VOLUME"]
 
-    # Daily snapshots kept 14 days — parity with the classic policy this
-    # replaced (24h interval, retain count 14). Default policies don't take a
-    # time-of-day or tags_to_add; copy_tags keeps the volume tags on the
-    # snapshots so they stay attributable.
-    create_interval = 1
-    retain_interval = 14
-    copy_tags       = true
+    schedule {
+      name = var.cluster_name
 
-    exclusions {
-      exclude_boot_volumes = true
-      # One deliberately generic tag rather than per-database PVC/namespace
-      # tags: exclude_tags is a map (one value per key), so listing CNPG
-      # namespaces here would break at the second database. Anything whose
-      # backups live elsewhere can opt out with this tag.
-      exclude_tags = {
-        dlm-exclude = "true"
+      create_rule {
+        interval      = 24
+        interval_unit = "HOURS"
+        times         = ["05:22"]
       }
+
+      retain_rule {
+        count = 14
+      }
+
+      tags_to_add = {
+        SnapshotCreator = "DLM"
+      }
+
+      copy_tags = true
+    }
+
+    target_tags = {
+      Backup = "dlm"
     }
   }
 }
