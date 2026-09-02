@@ -65,11 +65,15 @@ variable "create_spot_service_linked_role" {
 }
 variable "cnpg_backup_replication" {
   type        = bool
-  description = "Replicates every CNPG database backup bucket to cnpg_backup_replica_region (cnpg-databases.tf). Off, each bucket carries a VantaNoAlert tag instead; on, region loss is covered and Vanta's backup/replication test passes for real. Dev clusters typically leave this off; prod clusters turn it on."
+  description = "Replicates every CNPG database backup bucket to replica_region (cnpg-databases.tf). Off, each bucket carries a VantaNoAlert tag instead; on, region loss is covered and Vanta's backup/replication test passes for real. Dev clusters typically leave this off; prod clusters turn it on."
 }
-variable "cnpg_backup_replica_region" {
+variable "replica_region" {
   type        = string
-  description = "Destination region for CNPG backup replication. Pick a region different from region, or the replication protects against nothing. Still required (but unused) when cnpg_backup_replication is false, per this repo's no-defaults variables convention."
+  description = "Destination region for cross-region S3 replication. Today only the CNPG database backup buckets use it (cnpg-databases.tf, when cnpg_backup_replication is on), but it is deliberately not CNPG-named so future replicated buckets can share it. Pick a region different from region, or the replication protects against nothing. Still required (but unused) when nothing replicates, per this repo's no-defaults variables convention."
+}
+variable "dlm_snapshot_cnpg_databases" {
+  type        = bool
+  description = "Whether the DLM policy (dlm.tf) also snapshots CNPG database volumes. false swaps the classic EKS-volumes policy for a DLM default policy that skips volumes tagged dlm-exclude=true — the tag fluxcd-template's gp3-no-dlm StorageClass applies — because barman already backs those databases up (cnpg-databases.tf) and daily EBS snapshots of them would be redundant. See dlm.tf for the scope trade-off."
 }
 variable "region" {
   type = string
