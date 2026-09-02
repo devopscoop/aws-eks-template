@@ -75,15 +75,10 @@ resource "aws_s3_bucket_policy" "tempo" {
   depends_on = [aws_s3_bucket_public_access_block.tempo]
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "tempo" {
-  bucket = aws_s3_bucket.tempo.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
+# No SSE config: S3 has default-encrypted every new object with SSE-S3
+# (AES-256) since January 2023 and that floor can't be disabled — add an
+# aws_s3_bucket_server_side_encryption_configuration only if this bucket
+# ever needs SSE-KMS.
 
 # Clean up incomplete multipart uploads so partial block writes don't linger
 # and accrue storage cost. Tempo manages its own object retention via the

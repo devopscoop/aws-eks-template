@@ -112,17 +112,10 @@ resource "aws_s3_bucket_policy" "cnpg_db_backups" {
   depends_on = [aws_s3_bucket_public_access_block.cnpg_db_backups]
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "cnpg_db_backups" {
-  for_each = local.cnpg_databases
-
-  bucket = aws_s3_bucket.cnpg_db_backups[each.key].id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
+# No SSE config: S3 has default-encrypted every new object with SSE-S3
+# (AES-256) since January 2023 and that floor can't be disabled — add an
+# aws_s3_bucket_server_side_encryption_configuration only if a bucket ever
+# needs SSE-KMS (and then grant the IRSA role the KMS actions too).
 
 resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups" {
   for_each = local.cnpg_databases
@@ -310,19 +303,7 @@ resource "aws_s3_bucket_policy" "cnpg_db_backups_replica" {
   depends_on = [aws_s3_bucket_public_access_block.cnpg_db_backups_replica]
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "cnpg_db_backups_replica" {
-  for_each = local.replicated_cnpg_databases
-
-  provider = aws.replica
-
-  bucket = aws_s3_bucket.cnpg_db_backups_replica[each.key].id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
+# No SSE config here either — same S3 default as the source buckets above.
 
 # Delete-marker replication (below) mirrors barman's retention deletions
 # here, so the replica needs the same cleanup rules or its noncurrent

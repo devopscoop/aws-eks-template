@@ -80,7 +80,7 @@ There is no test suite. `fmt` / `validate` / `plan` are the entire verification 
 - Compliance is a first-class justification. Logging and retention decisions cite SOC 2 (CC7.2) and ISO/IEC 27001:2022 Annex A 8.15/8.16, and 365 days is the house retention standard (EKS control-plane logs, VPC flow logs, Route 53 query logs) because it covers a 12-month SOC 2 Type II observation period.
 - To take a resource out of scope for Vanta's automated tests, tag it `VantaNoAlert = "<reason>"` (see `flow-logs.tf`). It disables *every* Vanta test for that resource, not just the one that flagged it.
 - Module and provider versions are pinned exactly (`version = "21.24.0"`, not `~>`). Dependabot bumps them weekly.
-- Log/telemetry S3 buckets follow one shape: public access block, HTTPS-only bucket policy, SSE, and a lifecycle rule. Copy an existing one (`flow-logs.tf`, `loki.tf`) rather than starting fresh.
+- Log/telemetry S3 buckets follow one shape: public access block, HTTPS-only bucket policy, and a lifecycle rule — deliberately no SSE configuration, because S3 has default-encrypted every new object with SSE-S3 since January 2023 and that floor can't be disabled (add one only for SSE-KMS). Copy an existing one (`flow-logs.tf`, `loki.tf`) rather than starting fresh.
 
 ## Package manifests
 
