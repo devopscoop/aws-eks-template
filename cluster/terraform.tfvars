@@ -24,6 +24,16 @@ create_route53_zone               = true
 # spot use creates it implicitly); see cluster/karpenter.tf.
 create_spot_service_linked_role = true
 
+# Cross-region replication for the CNPG database backup buckets
+# (cnpg-backups.tf). Dev clusters leave this false — the buckets get a
+# VantaNoAlert tag instead; prod clusters set true for region-loss
+# protection and to satisfy Vanta's backup/replication test. Safe to flip on
+# later: S3 only replicates new objects, but barman's recovery window churns
+# the bucket contents, so coverage converges within one retention period.
+# The replica region must differ from region.
+cnpg_backup_replication = false
+replica_region          = "us-east-1"
+
 # Email addresses that receive CloudWatch alarm notifications, e.g. high CPU
 # on an EKS node (see cloudwatch-alarms.tf). Each address must confirm the
 # subscription email SNS sends it before notifications are delivered.

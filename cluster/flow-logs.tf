@@ -46,15 +46,10 @@ resource "aws_s3_bucket_public_access_block" "flow_logs" {
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "flow_logs" {
-  bucket = aws_s3_bucket.flow_logs.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
+# No SSE config: S3 has default-encrypted every new object with SSE-S3
+# (AES-256) since January 2023 and that floor can't be disabled — add an
+# aws_s3_bucket_server_side_encryption_configuration only if this bucket
+# ever needs SSE-KMS.
 
 # Expire delivered flow log objects after the retention window; also clean up
 # any incomplete multipart uploads.
