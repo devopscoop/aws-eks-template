@@ -34,15 +34,6 @@ create_spot_service_linked_role = true
 cnpg_backup_replication = false
 replica_region          = "us-east-1"
 
-# false = the DLM policy (dlm.tf) becomes a default policy that skips volumes
-# tagged dlm-exclude=true — CNPG database volumes, via fluxcd-template's
-# gp3-dangerous StorageClass — because barman already backs those databases up.
-# It also snapshots every other non-boot volume in the region, a slightly
-# broader scope than the classic EKS-only policy; dlm.tf spells out the
-# trade-off. true = the classic policy: snapshot all EKS CSI volumes,
-# CNPG's included (harmless, redundant with barman).
-dlm_snapshot_cnpg_databases = false
-
 # Email addresses that receive CloudWatch alarm notifications, e.g. high CPU
 # on an EKS node (see cloudwatch-alarms.tf). Each address must confirm the
 # subscription email SNS sends it before notifications are delivered.

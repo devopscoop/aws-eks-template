@@ -47,84 +47,32 @@ resource "aws_iam_role_policy" "dlm" {
   policy = data.aws_iam_policy_document.dlm_permissions.json
 }
 
-# Two mutually exclusive policies, switched by dlm_snapshot_cnpg_databases
-# (terraform.tfvars). The flag exists because CNPG databases are backed up by
-# barman to S3 (cnpg-backups.tf + fluxcd-template's apps/goalert), so daily
-# EBS snapshots of their volumes are redundant spend — and a crash-consistent
+# One DLM *default* policy: snapshot every EBS volume in the region except
+# boot volumes and volumes tagged dlm-exclude=true, daily, keep 14 days.
+#
+# A default policy rather than a classic (STANDARD) one because classic
+# policies select by target_tags only — the API has no exclusion mechanism
+# for them — and we need opt-out: CNPG databases are backed up by barman to
+# S3 (cnpg-backups.tf + fluxcd-template's apps/goalert), so daily EBS
+# snapshots of their volumes are redundant spend, and a crash-consistent
 # snapshot of one replica's volume is a restore footgun sitting next to
-# barman's point-in-time recovery.
-#
-# Why a whole second policy instead of an exclusion on the first: classic
-# (STANDARD) DLM policies select volumes by target_tags only — the API has no
-# exclusion mechanism for them. Exclusions exist only on DLM *default*
-# policies, so opting CNPG volumes out means switching policy types. The two
-# differ in scope, deliberately spelled out here:
-#
-#   - true  (classic): snapshots exactly the EKS CSI volumes
-#     (ebs.csi.aws.com/cluster=true), daily at 05:22, keep 14.
-#   - false (default policy): snapshots EVERY EBS volume in the region except
-#     boot volumes and volumes tagged dlm-exclude=true, daily (AWS picks the
-#     time), keep 14 days. Broader than the classic policy — in this
-#     template's dedicated-account layout the extra coverage is boot volumes
-#     (excluded) and nothing else, but a subtree consumer sharing an account
-#     with other EC2 workloads inherits snapshots of those volumes too. More
-#     backup, not less; still, know it's happening.
-#
-# The dlm-exclude=true tag comes from fluxcd-template's gp3-dangerous
-# StorageClass (tagSpecification_1), which CNPG databases use on EKS. Tags
+# barman's point-in-time recovery. The dlm-exclude=true tag comes from
+# fluxcd-template's gp3-dangerous StorageClass (tagSpecification_1). Tags
 # apply at provision time only: volumes that existed before a workload moved
 # to that class keep getting snapshotted until retro-tagged by hand — the
-# safe failure mode. After flipping the flag, the old policy's snapshots stop
-# being pruned (DLM only deletes snapshots of a live policy); delete the
-# leftover SnapshotCreator=DLM snapshots once the new policy has coverage.
-
-resource "aws_dlm_lifecycle_policy" "eks" {
-  count = var.dlm_snapshot_cnpg_databases ? 1 : 0
-
-  description        = "Backup all EKS volumes"
-  execution_role_arn = aws_iam_role.dlm.arn
-
-  policy_details {
-    resource_types = ["VOLUME"]
-
-    schedule {
-      name = var.cluster_name
-
-      create_rule {
-        interval      = 24
-        interval_unit = "HOURS"
-        times         = ["05:22"]
-      }
-
-      retain_rule {
-        count = 14
-      }
-
-      tags_to_add = {
-        SnapshotCreator = "DLM"
-      }
-
-      copy_tags = true
-    }
-
-    # All EKS PersistentVolumes in clusters newer than 1.23 have this tag set
-    # to true, so we're using this to select only AWS EKS PVs.
-    target_tags = {
-      "ebs.csi.aws.com/cluster" = "true"
-    }
-  }
-}
-
-# The flag gained a count; keep existing clusters' policy at its new address
-# instead of destroying and recreating it.
-moved {
-  from = aws_dlm_lifecycle_policy.eks
-  to   = aws_dlm_lifecycle_policy.eks[0]
-}
-
-resource "aws_dlm_lifecycle_policy" "eks_default" {
-  count = var.dlm_snapshot_cnpg_databases ? 0 : 1
-
+# safe failure mode.
+#
+# Scope note: this covers every non-boot volume in the region, not just EKS
+# CSI volumes like the classic policy it replaced. In this template's
+# dedicated-account layout that is the same set, but a subtree consumer
+# sharing an account with other EC2 workloads inherits snapshots of those
+# volumes too — more backup, not less; still, know it's happening.
+#
+# Migration from the classic policy: the old policy's snapshots stop being
+# pruned once it's destroyed (DLM only deletes snapshots of a live policy);
+# delete the leftover SnapshotCreator=DLM snapshots once this policy has
+# coverage.
+resource "aws_dlm_lifecycle_policy" "default" {
   # DLM descriptions only allow [0-9A-Za-z _-], so no "=true" here.
   description        = "Backup all volumes except boot volumes and dlm-exclude tagged volumes"
   execution_role_arn = aws_iam_role.dlm.arn
@@ -134,8 +82,8 @@ resource "aws_dlm_lifecycle_policy" "eks_default" {
     policy_language = "SIMPLIFIED"
     resource_type   = "VOLUME"
 
-    # Daily snapshots kept 14 days — parity with the classic policy above
-    # (24h interval, retain count 14). Default policies don't take a
+    # Daily snapshots kept 14 days — parity with the classic policy this
+    # replaced (24h interval, retain count 14). Default policies don't take a
     # time-of-day or tags_to_add; copy_tags keeps the volume tags on the
     # snapshots so they stay attributable.
     create_interval = 1
