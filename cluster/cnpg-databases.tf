@@ -14,10 +14,9 @@
 # cnpg_db_role_arns output).
 #
 # cnpg_backup_replication = true (terraform.tfvars) additionally replicates
-# every backup bucket to a second region for region-loss protection — the
-# same reason modules like s3-logging in downstream infra repos replicate:
-# Vanta's backup/replication test. Off, each bucket carries a VantaNoAlert
-# tag instead. Replication is deliberately all-or-nothing per cluster, not
+# every backup bucket to a second region, for region-loss protection and to
+# satisfy Vanta's backup/replication test. Off, each bucket carries a
+# VantaNoAlert tag instead. Replication is deliberately all-or-nothing per cluster, not
 # per database: the driver is environment criticality (dev vs prod), so the
 # switch lives in tfvars, which is exactly what differs between the
 # continuously-deployed repo and the prod fork it syncs to. Turning it on
