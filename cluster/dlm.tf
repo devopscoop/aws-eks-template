@@ -49,7 +49,7 @@ resource "aws_iam_role_policy" "dlm" {
 
 # Two mutually exclusive policies, switched by dlm_snapshot_cnpg_databases
 # (terraform.tfvars). The flag exists because CNPG databases are backed up by
-# barman to S3 (cnpg-databases.tf + fluxcd-template's apps/goalert), so daily
+# barman to S3 (cnpg-backups.tf + fluxcd-template's apps/goalert), so daily
 # EBS snapshots of their volumes are redundant spend — and a crash-consistent
 # snapshot of one replica's volume is a restore footgun sitting next to
 # barman's point-in-time recovery.

@@ -25,7 +25,7 @@ create_route53_zone               = true
 create_spot_service_linked_role = true
 
 # Cross-region replication for the CNPG database backup buckets
-# (cnpg-databases.tf). Dev clusters leave this false — the buckets get a
+# (cnpg-backups.tf). Dev clusters leave this false — the buckets get a
 # VantaNoAlert tag instead; prod clusters set true for region-loss
 # protection and to satisfy Vanta's backup/replication test. Safe to flip on
 # later: S3 only replicates new objects, but barman's recovery window churns

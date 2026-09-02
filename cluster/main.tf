@@ -11,7 +11,7 @@ provider "aws" {
 
 # Second region, for cross-region S3 replication (replica_region in
 # terraform.tfvars). Currently only the CNPG database backup buckets use it
-# (cnpg-databases.tf, when cnpg_backup_replication is on); it lives here
+# (cnpg-backups.tf, when cnpg_backup_replication is on); it lives here
 # rather than with its first consumer so future replicated buckets can share
 # it. Provider blocks can't be conditional, so it exists (unused) even when
 # nothing replicates — harmless.
