@@ -47,20 +47,6 @@ locals {
   replicated_cnpg_databases = var.cnpg_backup_replication ? local.cnpg_databases : {}
 }
 
-# Destination region for the replicas. The alias lives here because the CNPG
-# buckets are its only consumer today — move it somewhere shared when another
-# bucket starts replicating (replica_region is already named for that).
-# Provider blocks can't be conditional, so it exists (unused) even with
-# replication off — harmless.
-provider "aws" {
-  alias  = "replica"
-  region = var.replica_region
-
-  default_tags {
-    tags = local.tags
-  }
-}
-
 resource "aws_s3_bucket" "cnpg_db_backups" {
   for_each = local.cnpg_databases
 

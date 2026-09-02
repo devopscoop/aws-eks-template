@@ -36,7 +36,7 @@ replica_region          = "us-east-1"
 
 # false = the DLM policy (dlm.tf) becomes a default policy that skips volumes
 # tagged dlm-exclude=true — CNPG database volumes, via fluxcd-template's
-# gp3-no-dlm StorageClass — because barman already backs those databases up.
+# gp3-dangerous StorageClass — because barman already backs those databases up.
 # It also snapshots every other non-boot volume in the region, a slightly
 # broader scope than the classic EKS-only policy; dlm.tf spells out the
 # trade-off. true = the classic policy: snapshot all EKS CSI volumes,

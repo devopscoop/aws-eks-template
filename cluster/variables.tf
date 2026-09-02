@@ -73,7 +73,7 @@ variable "replica_region" {
 }
 variable "dlm_snapshot_cnpg_databases" {
   type        = bool
-  description = "Whether the DLM policy (dlm.tf) also snapshots CNPG database volumes. false swaps the classic EKS-volumes policy for a DLM default policy that skips volumes tagged dlm-exclude=true — the tag fluxcd-template's gp3-no-dlm StorageClass applies — because barman already backs those databases up (cnpg-databases.tf) and daily EBS snapshots of them would be redundant. See dlm.tf for the scope trade-off."
+  description = "Whether the DLM policy (dlm.tf) also snapshots CNPG database volumes. false swaps the classic EKS-volumes policy for a DLM default policy that skips volumes tagged dlm-exclude=true — the tag fluxcd-template's gp3-dangerous StorageClass applies — because barman already backs those databases up (cnpg-databases.tf) and daily EBS snapshots of them would be redundant. See dlm.tf for the scope trade-off."
 }
 variable "region" {
   type = string

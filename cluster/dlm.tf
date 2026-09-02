@@ -70,7 +70,7 @@ resource "aws_iam_role_policy" "dlm" {
 #     with other EC2 workloads inherits snapshots of those volumes too. More
 #     backup, not less; still, know it's happening.
 #
-# The dlm-exclude=true tag comes from fluxcd-template's gp3-no-dlm
+# The dlm-exclude=true tag comes from fluxcd-template's gp3-dangerous
 # StorageClass (tagSpecification_1), which CNPG databases use on EKS. Tags
 # apply at provision time only: volumes that existed before a workload moved
 # to that class keep getting snapshotted until retro-tagged by hand — the
