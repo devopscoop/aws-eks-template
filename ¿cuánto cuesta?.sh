@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 #
 # ¿cuánto cuesta?.sh — list every node in the current kube-context with
-# vCPU/memory and estimated monthly EC2 cost (plus per-vCPU and per-GiB
-# pricing), a section for EBS-backed PVCs with their monthly cost, the EKS
-# control plane fee, and a cluster total.
+# vCPU/memory and estimated monthly EC2 cost, a section for EBS-backed PVCs
+# with their monthly cost, the EKS control plane fee, and a cluster total.
 #
 # Pricing sources:
 #   - on-demand nodes (managed node groups, Karpenter on-demand/reserved):
@@ -163,13 +162,10 @@ awk -F'\t' -v OFS='\t' -v hrs="$HOURS_PER_MONTH" '
     vs = (v == "") ? "?" : sprintf("%g", v)
     ms = (m == "") ? "?" : sprintf("%g", m)
     if (p == "NA" || p == "") {
-      print node, itype, cap, zone, group, vs, ms, "?", "?", "?", "?"
+      print node, itype, cap, zone, group, vs, ms, "?", "?"
     } else {
-      mo = p * hrs
       print node, itype, cap, zone, group, vs, ms,
-            sprintf("%.4f", p), sprintf("%.2f", mo),
-            (v == "" ? "?" : sprintf("%.2f", mo / v)),
-            (m == "" ? "?" : sprintf("%.2f", mo / m))
+            sprintf("%.4f", p), sprintf("%.2f", p * hrs)
     }
   }' "$workdir/prices.tsv" "$workdir/nodes.tsv" \
   | sort -t"$(printf '\t')" -k9,9gr -k1,1 > "$workdir/body.tsv"
@@ -179,28 +175,22 @@ node_count="$(awk 'END {print NR}' "$workdir/body.tsv")"
 node_unknown="$(awk -F'\t' '$9 == "?" {n++} END {print n + 0}' "$workdir/body.tsv")"
 nodes_total="$(awk -F'\t' '$9 != "?" {t += $9} END {printf "%.2f", t + 0}' "$workdir/body.tsv")"
 
-# Totals: vCPU/mem over all nodes; blended $/vCPU and $/GiB over priced nodes only
+# Totals: vCPU/mem over all nodes; cost over priced nodes only
 total_row="$(awk -F'\t' -v OFS='\t' -v n="$node_count" '
   $6 != "?" { tv += $6 }
   $7 != "?" { tm += $7 }
-  $9 != "?" {
-    th += $8; t += $9
-    if ($6 != "?") pv += $6
-    if ($7 != "?") pm += $7
-  }
+  $9 != "?" { th += $8; t += $9 }
   END {
     print "TOTAL (" n " nodes)", "", "", "", "",
           sprintf("%g", tv), sprintf("%g", tm),
-          sprintf("%.4f", th), sprintf("%.2f", t),
-          (pv ? sprintf("%.2f", t / pv) : "?"),
-          (pm ? sprintf("%.2f", t / pm) : "?")
+          sprintf("%.4f", th), sprintf("%.2f", t)
   }' "$workdir/body.tsv")"
 
 echo "Cluster: $(kubectl config current-context)   Region: $REGION   Hours/month: $HOURS_PER_MONTH"
 echo
 echo "NODES"
 {
-  printf 'NODE\tINSTANCE\tCAPACITY\tZONE\tGROUP\tVCPU\tMEM_GIB\t$/HR\t$/MONTH\t$/VCPU/MO\t$/GIB/MO\n'
+  printf 'NODE\tINSTANCE\tCAPACITY\tZONE\tGROUP\tVCPU\tMEM_GIB\t$/HR\t$/MONTH\n'
   cat "$workdir/body.tsv"
   printf '%s\n' "$total_row"
 } | render_table 6
