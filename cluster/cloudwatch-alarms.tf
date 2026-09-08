@@ -198,17 +198,3 @@ resource "aws_sns_topic_subscription" "alarm_emails" {
   protocol  = "email"
   endpoint  = each.value
 }
-
-# The topic and its key gained a count above. Without these, adding
-# alarm_topic_arn would plan a destroy-and-recreate of both for every existing
-# consumer that leaves the variable empty, churning the topic ARN and dropping
-# confirmed email subscriptions along with it.
-moved {
-  from = aws_sns_topic.alarms
-  to   = aws_sns_topic.alarms[0]
-}
-
-moved {
-  from = module.alarms_kms_key
-  to   = module.alarms_kms_key[0]
-}
