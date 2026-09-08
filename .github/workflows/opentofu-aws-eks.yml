@@ -30,7 +30,7 @@ jobs:
     # runs normally for them.
     if: github.repository != 'devopscoop/aws-eks-template'
     steps:
-      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           # This will be overwritten with the correct region by quickstart.sh.
           aws-region: us-east-2
