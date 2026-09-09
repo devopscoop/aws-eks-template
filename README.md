@@ -251,7 +251,7 @@ The `examples` directory has additional code to build more AWS resources if you 
 
 ## Destroying a cluster
 
-To destroy a cluster, add `-destroy` to the `tofu plan` and `tofu apply` lines in the `.github/workflows/opentofu.yml` file.
+To destroy a cluster, add `-destroy` to the `tofu plan` and `tofu apply` lines in the `.github/workflows/opentofu-aws-eks.yml` file.
 
 Once the cluster has been destroyed, open AWS Console, go to Cloudformation, and delete the github-actions-project1-dev stack.
 

@@ -43,12 +43,12 @@ grep -rIl ${EXCLUDES} devopscoop "${SCRIPT_DIR}" | xargs perl -pi -e "s/devopsco
 grep -rIl ${EXCLUDES} us-east-2 "${SCRIPT_DIR}" | xargs perl -pi -e "s/us-east-2/${region}/g"
 
 # Adding the AWS Role name to the GitHub Actions workflow.
-perl -pi -e "s#role-to-assume:.*#role-to-assume: ${role_arn}#" "${SCRIPT_DIR}/.github/workflows/opentofu.yml"
+perl -pi -e "s#role-to-assume:.*#role-to-assume: ${role_arn}#" "${SCRIPT_DIR}/.github/workflows/opentofu-aws-eks.yml"
 
 if [[ "$method" == "subtree" ]]; then
 
   # Because this is a subtree, we need to copy the workflow to the root of the git repo for GitHub to use it. Adding $cluster_name to the filename to avoid a naming conflict.
-  cp "${SCRIPT_DIR}/.github/workflows/opentofu.yml" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
+  cp "${SCRIPT_DIR}/.github/workflows/opentofu-aws-eks.yml" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
 
   # Workflow paths need to be update to point to subtree directory (which is named $cluster_name)
   perl -pi -e "s# cluster# ${cluster_name}/cluster#" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
