@@ -154,6 +154,26 @@ module "eks" {
     "karpenter.sh/discovery" = local.name
   }
 
+  node_security_group_additional_rules = {
+    # `kubectl cnpg status` fetches each instance's live status through the API
+    # server's pods/proxy subresource, which makes the API server dial the pod
+    # IP directly on the CloudNativePG instance manager's status port (8000,
+    # not configurable). The module's default node security group only allows
+    # control-plane ingress on 443, 10250, and the standard webhook ports, and
+    # with the VPC CNI the pod IPs live on node ENIs behind this security
+    # group — so without this rule the proxy dial is silently dropped and the
+    # plugin (which sets no client timeout) hangs forever. See
+    # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/docs/network_connectivity.md
+    ingress_cluster_to_cnpg_status = {
+      description                   = "API server to CloudNativePG instance manager (kubectl cnpg status uses pods/proxy on port 8000)"
+      protocol                      = "tcp"
+      from_port                     = 8000
+      to_port                       = 8000
+      type                          = "ingress"
+      source_cluster_security_group = true
+    }
+  }
+
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
