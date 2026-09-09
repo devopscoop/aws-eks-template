@@ -11,7 +11,7 @@ This repo can be used to build a production-ready AWS EKS Kubernetes cluster. It
 
 ### Install required packages
 
-This repo ships package manifests that install every CLI tool it uses (`aws`, `aws-sso`, `tenv`, `jq`, `kubectl`, `k9s`, `git`, `zizmor`, `bash`, `perl`):
+This repo ships package manifests that install every CLI tool it uses (`aws`, `aws-sso`, `tenv`, `jq`, `kubectl`, `k9s`, `git`, `gh`, `zizmor`, `bash`, `perl`):
 
 - macOS, using [Homebrew](https://brew.sh/) and the `Brewfile`:
 
@@ -216,6 +216,11 @@ Based on <https://github.com/aws-ia/terraform-aws-eks-blueprints/tree/246f26025e
   git push origin github_actions
   ```
 1. Create a PR, and merge the branch to main.
+1. Protect the main branch, so that no PR can merge before the `opentofu` check completes. This also blocks direct pushes to main, because directly pushed commits never carry a passing check. The branch ruleset in `.github/rulesets/require-opentofu-check.json` requires that check on the default branch; PRs that don't touch `cluster/**` still merge, because the workflow's `changes` job skips the `opentofu` job for them and a skipped check satisfies the requirement. Apply the ruleset with the GitHub CLI (requires repo admin):
+   ```
+   gh api --method POST "repos/{owner}/{repo}/rulesets" --input .github/rulesets/require-opentofu-check.json
+   ```
+   Or import it in the GitHub UI: Settings → Rules → Rulesets → New branch ruleset → Import a ruleset. If you're using the subtree method, quickstart.sh renamed your check to `opentofu-${cluster_name}` — change the `context` field in the JSON to match before applying it to your monorepo.
 1. Checkout the create_cluster branch again:
    ```
    git checkout $branch_name
@@ -251,7 +256,7 @@ The `examples` directory has additional code to build more AWS resources if you 
 
 ## Destroying a cluster
 
-To destroy a cluster, add `-destroy` to the `tofu plan` and `tofu apply` lines in the `.github/workflows/opentofu.yml` file.
+To destroy a cluster, add `-destroy` to the `tofu plan` and `tofu apply` lines in the `.github/workflows/opentofu-aws-eks.yml` file.
 
 Once the cluster has been destroyed, open AWS Console, go to Cloudformation, and delete the github-actions-project1-dev stack.
 

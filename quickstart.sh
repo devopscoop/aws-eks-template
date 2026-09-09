@@ -43,15 +43,21 @@ grep -rIl ${EXCLUDES} devopscoop "${SCRIPT_DIR}" | xargs perl -pi -e "s/devopsco
 grep -rIl ${EXCLUDES} us-east-2 "${SCRIPT_DIR}" | xargs perl -pi -e "s/us-east-2/${region}/g"
 
 # Adding the AWS Role name to the GitHub Actions workflow.
-perl -pi -e "s#role-to-assume:.*#role-to-assume: ${role_arn}#" "${SCRIPT_DIR}/.github/workflows/opentofu.yml"
+perl -pi -e "s#role-to-assume:.*#role-to-assume: ${role_arn}#" "${SCRIPT_DIR}/.github/workflows/opentofu-aws-eks.yml"
 
 if [[ "$method" == "subtree" ]]; then
 
   # Because this is a subtree, we need to copy the workflow to the root of the git repo for GitHub to use it. Adding $cluster_name to the filename to avoid a naming conflict.
-  cp "${SCRIPT_DIR}/.github/workflows/opentofu.yml" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
+  cp "${SCRIPT_DIR}/.github/workflows/opentofu-aws-eks.yml" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
 
   # Workflow paths need to be update to point to subtree directory (which is named $cluster_name)
   perl -pi -e "s# cluster# ${cluster_name}/cluster#" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
+
+  # The copied workflow must trigger on pushes that change itself, not the template filename it was copied from.
+  perl -pi -e "s#\.github/workflows/opentofu-aws-eks\.yml#.github/workflows/opentofu-${cluster_name}.yml#g" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
+
+  # Rename the required status check so every cluster in the monorepo reports its own uniquely named check — one cluster's skipped `opentofu` check must not satisfy another cluster's required check. Use `opentofu-${cluster_name}` as the `context` in .github/rulesets/require-opentofu-check.json when you apply the ruleset to the monorepo (see the "Protect the main branch" step in the README).
+  perl -pi -e "s#name: opentofu\$#name: opentofu-${cluster_name}#" "${git_top_dir}/.github/workflows/opentofu-${cluster_name}.yml"
 
 fi
 

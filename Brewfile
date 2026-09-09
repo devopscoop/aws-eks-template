@@ -26,6 +26,11 @@ brew "k9s"
 # git - fork/subtree workflow in the README, quickstart.sh
 brew "git"
 
+# gh - GitHub CLI; the README uses `gh api` to apply the main-branch ruleset
+# (.github/rulesets/require-opentofu-check.json). The workflow's `changes` job
+# also runs it, but GitHub's runners preinstall it there.
+brew "gh"
+
 # zizmor - GitHub Actions workflow auditing, referenced in .github/workflows/opentofu-aws-eks.yml
 brew "zizmor"
 
