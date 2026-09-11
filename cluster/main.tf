@@ -221,6 +221,26 @@ module "eks" {
       # This value is ignored after the initial creation
       # https://github.com/bryantbiggs/eks-desired-size-hack
       desired_size = 3
+
+      # Blue is reserved for workloads that must not ride Karpenter capacity:
+      # CNPG database instances (consolidation and drift drains force a
+      # switchover whenever the bin-packer rearranges nodes) and the
+      # controllers that bootstrap scheduling itself. karpenter and coredns
+      # tolerate this taint out of the box; the cnpg-database template's
+      # karpenter marker block (fluxcd repo, apps/templates/cnpg-database)
+      # adds the matching toleration alongside the node affinity that pins
+      # databases here. Everything else drifts to Karpenter nodes as pods
+      # restart: EKS applies taint updates to existing group nodes in place
+      # (no node rotation), and a NO_SCHEDULE taint never evicts running
+      # pods. DaemonSets need the toleration too — one that lacks it keeps
+      # its running pods but stops scheduling onto REPLACEMENT blue nodes.
+      taints = {
+        critical_addons_only = {
+          key    = "CriticalAddonsOnly"
+          value  = "true"
+          effect = "NO_SCHEDULE"
+        }
+      }
     }
 
   }
