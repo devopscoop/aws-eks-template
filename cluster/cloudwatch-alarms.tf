@@ -236,8 +236,8 @@ resource "aws_cloudwatch_metric_alarm" "nlb_unhealthy_hosts" {
   datapoints_to_alarm = local.nlb_health_alarm_minutes
   treat_missing_data  = "breaching"
 
-  alarm_actions = [aws_sns_topic.alarms.arn]
-  ok_actions    = [aws_sns_topic.alarms.arn]
+  alarm_actions = [local.alarm_topic_arn]
+  ok_actions    = [local.alarm_topic_arn]
 }
 
 # UnHealthyHostCount alone misses the zero-registered-targets case (0 targets
@@ -264,8 +264,8 @@ resource "aws_cloudwatch_metric_alarm" "nlb_no_healthy_hosts" {
   datapoints_to_alarm = local.nlb_health_alarm_minutes
   treat_missing_data  = "breaching"
 
-  alarm_actions = [aws_sns_topic.alarms.arn]
-  ok_actions    = [aws_sns_topic.alarms.arn]
+  alarm_actions = [local.alarm_topic_arn]
+  ok_actions    = [local.alarm_topic_arn]
 }
 
 ################################################################################
