@@ -240,6 +240,18 @@ resource "aws_s3_bucket" "cnpg_db_backups_replica" {
   provider = aws.replica
 
   bucket = "${var.org_name}-${var.cluster_name}-${each.value}-backups-replica"
+
+  # Vanta's backup/replication test sees an unreplicated S3 bucket and flags
+  # it, but this bucket IS the replica: replicating it onward would be a
+  # third copy nobody restores from. The VantaNoAlert tag deactivates the
+  # resource in Vanta (marks it out of scope) so the test doesn't flag it.
+  # The source bucket stays in scope and passes the test for real. Note the
+  # tag takes the bucket out of scope for ALL Vanta tests, not just the
+  # replication one — its public-access block and HTTPS-only policy above
+  # and below are still applied, just no longer independently attested.
+  tags = {
+    VantaNoAlert = "${each.key} database backup replica - this is the cross-region replica of the ${each.value}-backups bucket and does not itself need to be replicated"
+  }
 }
 
 resource "aws_s3_bucket_versioning" "cnpg_db_backups_replica" {
