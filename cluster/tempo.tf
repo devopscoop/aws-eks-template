@@ -83,10 +83,9 @@ resource "aws_s3_bucket_policy" "tempo" {
 # Clean up incomplete multipart uploads so partial block writes don't linger
 # and accrue storage cost. Tempo manages its own object retention via the
 # compactor (tempo.retention -> block_retention in fluxcd-template), so there
-# is no object-expiration rule here. (Unlike loki.tf, no delete-marker cleanup
-# either: that rule exists for buckets that lived through the template's
-# cross-region-replication era with versioning enabled, and tempo buckets
-# postdate it.)
+# is no object-expiration rule here. (No delete-marker cleanup either — see
+# cnpg-backups.tf: that rule exists for buckets that have ever had versioning
+# enabled, and this one never has.)
 resource "aws_s3_bucket_lifecycle_configuration" "tempo" {
   bucket = aws_s3_bucket.tempo.id
 
