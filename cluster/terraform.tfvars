@@ -17,6 +17,12 @@ eks_addon_version_eks-pod-identity-agent    = "v1.4.0-eksbuild.1"
 eks_addon_version_kube-proxy                = "v1.35.3-eksbuild.18"
 eks_addon_version_vpc-cni                   = "v1.23.0-eksbuild.1"
 
+# Use the update_node_ami.sh script in this directory to update this to the
+# latest EKS-optimized AMI release for cluster_version. Pinned so a new AMI
+# release rotates the nodes only when someone asks for it — see the comment on
+# ami_release_version in main.tf.
+node_ami_release_version = "1.35.8-20260917"
+
 enable_image_reflector_controller = true
 enable_route53                    = true
 create_route53_zone               = true

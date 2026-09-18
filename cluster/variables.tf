@@ -47,6 +47,10 @@ variable "eks_addon_version_snapshot-controller" {
 variable "eks_addon_version_vpc-cni" {
   type = string
 }
+variable "node_ami_release_version" {
+  type        = string
+  description = "EKS-optimized AMI release version for the managed node groups (main.tf), e.g. \"1.35.8-20260917\". Pinned so that a new AMI release is a deliberate change instead of a node rotation riding along with an unrelated PR — left unset, the module resolves it to the latest release for cluster_version on every plan. Must be a release of cluster_version's Kubernetes minor; run ./update_node_ami.sh to bump both together."
+}
 variable "enable_image_reflector_controller" {
   type        = bool
   description = "Enables the Flux image-reflector-controller IAM role for ECR read access."
