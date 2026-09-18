@@ -75,6 +75,18 @@ There is no test suite. `fmt` / `validate` / `plan` are the entire verification 
 - Plan output is written to a file and `tee`d rather than passed through a step output, because large plans blow past `ARG_MAX`. PR comments are truncated at 63000 chars with a link to the artifact.
 - Destroying a cluster means adding `-destroy` to the plan/apply lines in that workflow, not running destroy locally.
 
+`.github/workflows/update-eks-versions.yml` runs weekly and keeps the version
+pins honest. Its `pins` job runs `update_node_ami.sh` and `update_eks_addons.sh`
+and opens a PR when either moves — routine drift inside one Kubernetes minor,
+reviewed against the `tofu plan` the deploy workflow comments on it. Its
+`kubernetes-version` job compares `cluster_version` with
+`aws eks describe-cluster-versions` and files an issue when a newer minor exists
+or standard support is within 90 days; a minor upgrade goes control plane and
+nodes first, add-ons after, one minor at a time. Both jobs carry the same
+`github.repository != 'devopscoop/aws-eks-template'` guard as the deploy
+workflow. A PR opened with the default `GITHUB_TOKEN` cannot trigger the plan
+workflow, so set a `VERSION_BUMP_TOKEN` secret if you want the plan comment.
+
 ## Conventions
 
 - Comments explain *why*, at length, and usually link the GitHub issue or AWS doc that forced the decision. Match that density: a surprising line should carry its reason.
