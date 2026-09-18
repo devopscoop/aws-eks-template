@@ -139,8 +139,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups" {
     # door (Enabled can only ever go to Suspended), so ship the cleanup
     # unconditionally; both are no-ops on a never-versioned bucket. Without
     # them, barman's constant retention deletions leave delete markers and
-    # noncurrent versions behind forever — loki.tf's lifecycle comment
-    # documents that exact failure mode degrading S3 list performance.
+    # noncurrent versions behind forever, and enough of them degrade S3 list
+    # performance — the failure mode this template's log buckets hit after
+    # the cross-region-replication era left their versioning Suspended.
     #
     # 7 days of noncurrent versions is a deliberate safety net: long enough
     # to notice and recover from a runaway retention bug or accidental
@@ -223,7 +224,7 @@ module "cnpg_db_irsa" {
 # CRR requires versioning on both sides. Note the one-way door: turning the
 # toggle off later leaves versioning on the source bucket Suspended, not
 # disabled (S3 offers no way back) — the cleanup lifecycle rules above keep
-# that state from accumulating garbage, exactly the lesson loki.tf records.
+# that state from accumulating garbage (see the comment on them).
 resource "aws_s3_bucket_versioning" "cnpg_db_backups" {
   for_each = local.replicated_cnpg_databases
 

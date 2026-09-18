@@ -26,8 +26,8 @@ Only AWS infrastructure lives here. Everything that runs *inside* Kubernetes (He
 `module.eks` sets `endpoint_public_access = false` (`main.tf`). CI runs outside the VPC and therefore cannot reach the Kubernetes API. Consequences:
 
 - **Never add a `kubernetes`, `helm`, or `kubectl` provider to `cluster/`.** It may work from a laptop and will fail in CI. This constraint caused a major refactor already; the long comment on that setting explains it.
-- The pattern for any in-cluster workload that needs AWS permissions is: create the IRSA role here, `output` its ARN, then paste that ARN into the matching `eks.amazonaws.com/role-arn` ServiceAccount annotation in fluxcd-template. See `cert-manager.tf`, `external-dns.tf`, `aws-load-balancer-controller.tf`, `image-reflector-controller.tf`, `loki.tf` — they are all the same 20-line shape.
-- Outputs are this repo's interface with fluxcd-template (`efs_id`, `loki_bucket_names`, the `*_role_arn`s). Every one of them has a `description` naming the file it gets pasted into; keep that true when adding outputs.
+- The pattern for any in-cluster workload that needs AWS permissions is: create the IRSA role here, `output` its ARN, then paste that ARN into the matching `eks.amazonaws.com/role-arn` ServiceAccount annotation in fluxcd-template. See `cert-manager.tf`, `external-dns.tf`, `aws-load-balancer-controller.tf`, `image-reflector-controller.tf`, and the IRSA half of `tempo.tf` — they are all the same 20-line shape.
+- Outputs are this repo's interface with fluxcd-template (`efs_id`, `tempo_bucket_name`, the `*_role_arn`s). Every one of them has a `description` naming the file it gets pasted into; keep that true when adding outputs.
 
 Human cluster access comes from `local.sso_access_entries` in `data.tf`, which discovers `AWSReservedSSO_*` role ARNs by regex because those ARNs have a dynamic suffix. Add new permission sets there rather than hardcoding ARNs into `access_entries` in `main.tf`. Read-only SSO roles are also put in a `cluster-viewers` Kubernetes group so fluxcd-template can bind them to CRD view rights.
 
@@ -80,7 +80,7 @@ There is no test suite. `fmt` / `validate` / `plan` are the entire verification 
 - Compliance is a first-class justification. Logging and retention decisions cite SOC 2 (CC7.2) and ISO/IEC 27001:2022 Annex A 8.15/8.16, and 365 days is the house retention standard (EKS control-plane logs, VPC flow logs, Route 53 query logs) because it covers a 12-month SOC 2 Type II observation period.
 - To take a resource out of scope for Vanta's automated tests, tag it `VantaNoAlert = "<reason>"` (see `flow-logs.tf`). It disables *every* Vanta test for that resource, not just the one that flagged it.
 - Module and provider versions are pinned exactly (`version = "21.24.0"`, not `~>`). Dependabot bumps them weekly.
-- Log/telemetry S3 buckets follow one shape: public access block, HTTPS-only bucket policy, and a lifecycle rule — deliberately no SSE configuration, because S3 has default-encrypted every new object with SSE-S3 since January 2023 and that floor can't be disabled (add one only for SSE-KMS). Copy an existing one (`flow-logs.tf`, `loki.tf`) rather than starting fresh.
+- Log/telemetry S3 buckets follow one shape: public access block, HTTPS-only bucket policy, and a lifecycle rule — deliberately no SSE configuration, because S3 has default-encrypted every new object with SSE-S3 since January 2023 and that floor can't be disabled (add one only for SSE-KMS). Copy an existing one (`flow-logs.tf`, `tempo.tf`) rather than starting fresh.
 
 ## Package manifests
 
