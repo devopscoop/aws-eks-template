@@ -12,6 +12,18 @@
 # docs.aws.amazon.com/eks/latest/userguide/update-cluster.html), and it is one
 # minor at a time. That gets an issue to pick up deliberately, not a PR to
 # merge.
+# Unlike the deploy workflow, this one DOES run in the template repo. It never
+# touches a cluster: every lookup it makes — the EKS-optimized AMI SSM
+# parameters, describe-addon-versions, describe-cluster-versions — is
+# account-level and read-only, so it works anywhere with credentials and needs
+# no cluster to exist. Letting it run here is the point: it keeps the pins in
+# this repo's terraform.tfvars current, so a fresh fork does not start life on
+# a stale AMI and stale add-ons.
+#
+# That does mean role-to-assume below must name a real role in whatever account
+# the template repo is allowed to read from, with ssm:GetParameter,
+# eks:DescribeAddonVersions and eks:DescribeClusterVersions. It does not need
+# the deploy role's write access.
 name: Update EKS versions
 
 on:
@@ -28,12 +40,8 @@ jobs:
   pins:
     name: AMI and add-on pins
     runs-on: ubuntu-latest
-    # This is a template repo; the cluster isn't real here, so don't run against
-    # it. Repos created from the template have a different name, so the workflow
-    # runs normally for them.
-    if: github.repository != 'devopscoop/aws-eks-template'
     permissions:
-      id-token: write # assume the deploy role via OIDC
+      id-token: write # assume the read-only lookup role via OIDC
       contents: write # push the bump branch
       pull-requests: write # open the PR
     steps:
@@ -93,9 +101,8 @@ jobs:
   kubernetes-version:
     name: Kubernetes minor
     runs-on: ubuntu-latest
-    if: github.repository != 'devopscoop/aws-eks-template'
     permissions:
-      id-token: write # assume the deploy role via OIDC
+      id-token: write # assume the read-only lookup role via OIDC
       contents: read
       issues: write # file the upgrade reminder
     steps:

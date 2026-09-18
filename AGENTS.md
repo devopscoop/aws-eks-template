@@ -82,10 +82,13 @@ reviewed against the `tofu plan` the deploy workflow comments on it. Its
 `kubernetes-version` job compares `cluster_version` with
 `aws eks describe-cluster-versions` and files an issue when a newer minor exists
 or standard support is within 90 days; a minor upgrade goes control plane and
-nodes first, add-ons after, one minor at a time. Both jobs carry the same
-`github.repository != 'devopscoop/aws-eks-template'` guard as the deploy
-workflow. A PR opened with the default `GITHUB_TOKEN` cannot trigger the plan
-workflow, so set a `VERSION_BUMP_TOKEN` secret if you want the plan comment.
+nodes first, add-ons after, one minor at a time. Unlike the deploy workflow it
+deliberately has **no** template-repo guard: every lookup it makes is
+account-level and read-only, needs no cluster, and running it here is what keeps
+a fresh fork from starting on stale pins — so its `role-to-assume` needs to name
+a real read-only role, not the deploy role. A PR opened with the default
+`GITHUB_TOKEN` cannot trigger the plan workflow, so set a `VERSION_BUMP_TOKEN`
+secret if you want the plan comment.
 
 ## Conventions
 
