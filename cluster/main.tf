@@ -177,8 +177,47 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
+  # One managed node group per availability zone, each pinned to that zone's
+  # private subnet, rather than a single three-node group spanning all three.
+  #
+  # EKS marks EVERY node in a group unschedulable during the scale-up phase of
+  # a version update — before any draining starts, and independently of
+  # maxUnavailable, which caps only how many nodes drain in parallel
+  # (https://docs.aws.amazon.com/eks/latest/userguide/managed-node-update-behavior.html).
+  # With a single group that cordons all three nodes at once, and CloudNativePG
+  # then cannot move a primary off the node being drained: its switchover
+  # candidate loop skips every replica whose own node is unschedulable, logs
+  # "no valid candidates", and does nothing (internal/controller/replicas.go).
+  # The primary PDB allows zero disruptions, so that node's drain retries for
+  # 15 minutes and the apply dies with PodEvictionFailure. Seen twice on a real
+  # cluster; it does not resolve on its own — it needs `kubectl cnpg promote`
+  # by hand, which is not something an unattended apply can do.
+  #
+  # Per-AZ groups break the deadlock because each group runs its own update
+  # instead of queueing behind one blocked node. The two groups whose node
+  # holds only a REPLICA drain right away (the replica PDB allows one
+  # disruption at a time), that replica reschedules onto its zone's fresh
+  # node, and the moment it is Ready on a schedulable node CloudNativePG has
+  # the candidate it was missing and switches over by itself — while the
+  # primary's group is still retrying, so that drain then succeeds too. This
+  # holds whether OpenTofu issues the three updates concurrently or one after
+  # another: serialized, the replica nodes are never cordoned at the same time
+  # and the switchover is immediate.
+  #
+  # Total capacity is unchanged — three nodes, one per AZ, which is what the
+  # single group already converged on through ASG availability-zone
+  # rebalancing; making it explicit is what buys the independent lifecycles. A
+  # CNPG instance is pinned to one AZ by its EBS volume regardless, so it has
+  # exactly one node it can run on either way. A fixed min/max/desired of 1 per
+  # group still leaves room for the replacement node, because the update
+  # workflow raises the ASG's own maximum and desired size for its duration.
   eks_managed_node_groups = {
-    blue = {
+    for i, az in local.azs : "blue-${trimprefix(az, local.region)}" => {
+
+      # Pin this group to one zone. module.vpc.private_subnets is built from
+      # local.azs in order (see the vpc module below), the same pairing the EFS
+      # mount targets rely on.
+      subnet_ids = [module.vpc.private_subnets[i]]
 
       # A custom launch template is required to configure the root volume via
       # block_device_mappings (KMS-encrypted, below). This means
@@ -216,11 +255,12 @@ module "eks" {
       # ami_type       = "AL2023_ARM_64_STANDARD"
       instance_types = ["t3a.large"]
 
-      min_size = 3
-      max_size = 3
+      # One node per zone; three groups make the same three nodes as before.
+      min_size = 1
+      max_size = 1
       # This value is ignored after the initial creation
       # https://github.com/bryantbiggs/eks-desired-size-hack
-      desired_size = 3
+      desired_size = 1
 
       # Blue is reserved for workloads that must not ride Karpenter capacity:
       # CNPG database instances (consolidation and drift drains force a
