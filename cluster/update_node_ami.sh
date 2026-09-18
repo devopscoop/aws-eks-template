@@ -8,18 +8,8 @@ set -Eeuo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Don't hardcode terraform.tfvars: forks rename it (e.g. prod.auto.tfvars),
-# which silently turned update_eks_addons.sh into a no-op. Instead, target
-# whichever single tfvars file carries the node_ami_release_version pin.
-tfvars_file=$(grep -lE '^node_ami_release_version' "${SCRIPT_DIR}"/*.tfvars || true)
-if [ -z "$tfvars_file" ]; then
-  echo "error: no *.tfvars file with a node_ami_release_version pin found in ${SCRIPT_DIR}" >&2
-  exit 1
-fi
-if [ "$(wc -l <<< "$tfvars_file")" -ne 1 ]; then
-  echo "error: multiple tfvars files with a node_ami_release_version pin; expected exactly one:" >&2
-  echo "$tfvars_file" >&2
-  exit 1
-fi
+# which silently turned this script into a no-op.
+tfvars_file=$(grep -lE '^node_ami_release_version' "${SCRIPT_DIR}"/*.tfvars)
 
 AWS_REGION=$(sed -nE "s/^region[^=]*=[ \t]+['\"]?([^'\"]+)['\"]?/\1/p" "$tfvars_file")
 export AWS_REGION
