@@ -52,6 +52,15 @@ locals {
   vpc_cidr = var.vpc_cidr
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
+  # The zones blue gets a node group in — one each, sized for a three-instance
+  # CNPG cluster, which is what the databases pinned to blue actually need. It
+  # is deliberately its own slice rather than local.azs: blue's node count is a
+  # property of the database topology, not of how wide the VPC happens to be,
+  # and since the split to per-AZ groups the two would otherwise be the same
+  # number. Widening local.azs for subnet spread would then quietly grow blue
+  # too, which is not a decision that should ride along with a networking one.
+  blue_azs = slice(local.azs, 0, 3)
+
   tags = {
     GitRepo = var.tags_git_repo
   }
@@ -212,11 +221,12 @@ module "eks" {
   # group still leaves room for the replacement node, because the update
   # workflow raises the ASG's own maximum and desired size for its duration.
   eks_managed_node_groups = {
-    for i, az in local.azs : "blue-${trimprefix(az, local.region)}" => {
+    for i, az in local.blue_azs : "blue-${trimprefix(az, local.region)}" => {
 
       # Pin this group to one zone. module.vpc.private_subnets is built from
       # local.azs in order (see the vpc module below), the same pairing the EFS
-      # mount targets rely on.
+      # mount targets rely on, and local.blue_azs is a prefix of local.azs so
+      # the indexes line up.
       subnet_ids = [module.vpc.private_subnets[i]]
 
       # A custom launch template is required to configure the root volume via
