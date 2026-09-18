@@ -60,6 +60,7 @@ tofu validate -no-color
 tofu plan -concise -no-color -input=false -out=plan.file
 ./update_eks_addons.sh        # rewrites every eks_addon_version_* in terraform.tfvars to the latest for cluster_version
 ./update_node_ami.sh          # rewrites node_ami_release_version in terraform.tfvars to the latest AMI for cluster_version
+./upgrade_eks_version.sh      # rewrites cluster_version in terraform.tfvars to the newest Kubernetes version EKS offers
 zizmor .github/workflows      # audit workflows after changing them
 ```
 
@@ -74,18 +75,6 @@ There is no test suite. `fmt` / `validate` / `plan` are the entire verification 
 - Third-party actions are pinned to full commit SHAs with a trailing `# vX.Y.Z` comment. Pin new ones the same way, and never interpolate `${{ ... }}` into an inline `script:` body — pass values through `env:` and read `process.env.*` (the workflow's zizmor template-injection comment explains why).
 - Plan output is written to a file and `tee`d rather than passed through a step output, because large plans blow past `ARG_MAX`. PR comments are truncated at 63000 chars with a link to the artifact.
 - Destroying a cluster means adding `-destroy` to the plan/apply lines in that workflow, not running destroy locally.
-
-`.github/workflows/update-eks-versions.yml` runs weekly and keeps the version
-pins honest. Its `pins` job runs `update_node_ami.sh` and `update_eks_addons.sh`
-and opens a PR when either moves — routine drift inside one Kubernetes minor,
-reviewed against the `tofu plan` the deploy workflow comments on it. Its
-`kubernetes-version` job compares `cluster_version` with
-`aws eks describe-cluster-versions` and files an issue when a newer minor exists
-or standard support is within 90 days; a minor upgrade goes control plane and
-nodes first, add-ons after, one minor at a time. Both jobs carry the same
-`github.repository != 'devopscoop/aws-eks-template'` guard as the deploy
-workflow. A PR opened with the default `GITHUB_TOKEN` cannot trigger the plan
-workflow, so set a `VERSION_BUMP_TOKEN` secret if you want the plan comment.
 
 ## Conventions
 
