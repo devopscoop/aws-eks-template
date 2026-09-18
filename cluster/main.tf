@@ -265,6 +265,23 @@ module "eks" {
       # ami_type       = "AL2023_ARM_64_STANDARD"
       instance_types = ["t3a.large"]
 
+      # Pin the AMI rather than letting the module default it to "latest
+      # release for this cluster version", which is what it does when
+      # ami_release_version is null. Unpinned, a new EKS AMI release becomes a
+      # node rotation on whatever PR merges next: the plan that set off the
+      # PodEvictionFailure incident behind the per-AZ split was a single line,
+      #
+      #   ~ release_version = "1.35.7-20260903" -> "1.35.8-20260917"
+      #
+      # on a PR that had nothing to do with node groups. Rotating the nodes
+      # the databases sit on deserves to be its own reviewable change, with a
+      # plan that says so.
+      #
+      # ./update_node_ami.sh bumps this the way update_eks_addons.sh bumps the
+      # addon pins. A release version belongs to one Kubernetes minor, so bump
+      # it in the same commit as cluster_version.
+      ami_release_version = var.node_ami_release_version
+
       # One node per zone; three groups make the same three nodes as before.
       min_size = 1
       max_size = 1
