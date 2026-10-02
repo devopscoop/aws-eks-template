@@ -186,133 +186,148 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  # One managed node group per availability zone, each pinned to that zone's
-  # private subnet, rather than a single three-node group spanning all three.
-  #
-  # EKS marks EVERY node in a group unschedulable during the scale-up phase of
-  # a version update — before any draining starts, and independently of
-  # maxUnavailable, which caps only how many nodes drain in parallel
-  # (https://docs.aws.amazon.com/eks/latest/userguide/managed-node-update-behavior.html).
-  # With a single group that cordons all three nodes at once, and CloudNativePG
-  # then cannot move a primary off the node being drained: its switchover
-  # candidate loop skips every replica whose own node is unschedulable, logs
-  # "no valid candidates", and does nothing (internal/controller/replicas.go).
-  # The primary PDB allows zero disruptions, so that node's drain retries for
-  # 15 minutes and the apply dies with PodEvictionFailure. Seen twice on a real
-  # cluster; it does not resolve on its own — it needs `kubectl cnpg promote`
-  # by hand, which is not something an unattended apply can do.
-  #
-  # Per-AZ groups break the deadlock because each group runs its own update
-  # instead of queueing behind one blocked node. The two groups whose node
-  # holds only a REPLICA drain right away (the replica PDB allows one
-  # disruption at a time), that replica reschedules onto its zone's fresh
-  # node, and the moment it is Ready on a schedulable node CloudNativePG has
-  # the candidate it was missing and switches over by itself — while the
-  # primary's group is still retrying, so that drain then succeeds too. This
-  # holds whether OpenTofu issues the three updates concurrently or one after
-  # another: serialized, the replica nodes are never cordoned at the same time
-  # and the switchover is immediate.
-  #
-  # Total capacity is unchanged — three nodes, one per AZ, which is what the
-  # single group already converged on through ASG availability-zone
-  # rebalancing; making it explicit is what buys the independent lifecycles. A
-  # CNPG instance is pinned to one AZ by its EBS volume regardless, so it has
-  # exactly one node it can run on either way. A fixed min/max/desired of 1 per
-  # group still leaves room for the replacement node, because the update
-  # workflow raises the ASG's own maximum and desired size for its duration.
-  eks_managed_node_groups = {
-    for i, az in local.blue_azs : "blue-${trimprefix(az, local.region)}" => {
+  # Node groups: module.blue_1..blue_3 below.
+}
 
-      # Pin this group to one zone. module.vpc.private_subnets is built from
-      # local.azs in order (see the vpc module below), the same pairing the EFS
-      # mount targets rely on, and local.blue_azs is a prefix of local.azs so
-      # the indexes line up.
-      subnet_ids = [module.vpc.private_subnets[i]]
+################################################################################
+# Blue managed node groups
+################################################################################
 
-      # A custom launch template is required to configure the root volume via
-      # block_device_mappings (KMS-encrypted, below). This means
-      # `disk_size`/`remote_access` can no longer be set directly — the disk is
-      # configured via block_device_mappings below instead.
-      use_custom_launch_template = true
+# One managed node group per availability zone, each pinned to that zone's
+# private subnet, rather than a single three-node group spanning all three.
+#
+# EKS marks EVERY node in a group unschedulable during the scale-up phase of
+# a version update — before any draining starts, and independently of
+# maxUnavailable, which caps only how many nodes drain in parallel
+# (https://docs.aws.amazon.com/eks/latest/userguide/managed-node-update-behavior.html).
+# With a single group that cordons all three nodes at once, and CloudNativePG
+# then cannot move a primary off the node being drained: its switchover
+# candidate loop skips every replica whose own node is unschedulable, logs
+# "no valid candidates", and does nothing (internal/controller/replicas.go).
+# The primary PDB allows zero disruptions, so that node's drain retries for
+# 15 minutes and the apply dies with PodEvictionFailure. Seen twice on a real
+# cluster; it does not resolve on its own — it needs `kubectl cnpg promote`
+# by hand, which is not something an unattended apply can do.
+#
+# The groups update one at a time, with a settle period between them, so a
+# rotation takes down at most one CNPG instance at a time.
+#
+# Total capacity is unchanged — three nodes, one per AZ, which is what the
+# single group already converged on through ASG availability-zone
+# rebalancing; making it explicit is what buys the independent lifecycles. A
+# CNPG instance is pinned to one AZ by its EBS volume regardless, so it has
+# exactly one node it can run on either way. A fixed min/max/desired of 1 per
+# group still leaves room for the replacement node, because the update
+# workflow raises the ASG's own maximum and desired size for its duration.
+locals {
+  # "blue-a", "blue-b", ... in local.blue_azs order.
+  blue_node_group_names = [for az in local.blue_azs : "blue-${trimprefix(az, local.region)}"]
 
-      # Replaces the former `disk_size = 50`. Encrypt the root volume with the
-      # customer-managed EBS key (the ASG service-linked role is already granted
-      # use of it in module.ebs_kms_key). AL2023's root device is /dev/xvda.
-      block_device_mappings = {
-        xvda = {
-          device_name = "/dev/xvda"
-          ebs = {
-            volume_size           = 50
-            volume_type           = "gp3"
-            encrypted             = true
-            kms_key_id            = module.ebs_kms_key.key_arn
-            delete_on_termination = true
-          }
-        }
-      }
+  blue_instance_types = ["t3a.large"]
 
-      # Let EKS replace nodes that stay unhealthy (Ready stuck False/Unknown,
-      # or faults reported by the eks-node-monitoring-agent addon above). The
-      # ASG alone cannot catch this: a kubelet can crash or starve — e.g. a
-      # burstable instance out of CPU credits — while EC2 status checks keep
-      # passing, so the instance sits NotReady until someone terminates it by
-      # hand.
-      node_repair_config = {
-        enabled = true
-      }
+  # Time for the replica that just moved to catch up.
+  blue_settle_duration = "10m"
 
-      # instance_types = ["t4g.large"]
-      # ami_type       = "AL2023_ARM_64_STANDARD"
-      instance_types = ["t3a.large"]
-
-      # Pin the AMI rather than letting the module default it to "latest
-      # release for this cluster version", which is what it does when
-      # ami_release_version is null. Unpinned, a new EKS AMI release becomes a
-      # node rotation on whatever PR merges next: the plan that set off the
-      # PodEvictionFailure incident behind the per-AZ split was a single line,
-      #
-      #   ~ release_version = "1.35.7-20260903" -> "1.35.8-20260917"
-      #
-      # on a PR that had nothing to do with node groups. Rotating the nodes
-      # the databases sit on deserves to be its own reviewable change, with a
-      # plan that says so.
-      #
-      # ./update_node_ami.sh bumps this the way update_eks_addons.sh bumps the
-      # addon pins. A release version belongs to one Kubernetes minor, so bump
-      # it in the same commit as cluster_version.
-      # The module ignores the pin unless use_latest_ami_release_version is off.
-      ami_release_version            = var.node_ami_release_version
-      use_latest_ami_release_version = false
-
-      # One node per zone; three groups make the same three nodes as before.
-      min_size = 1
-      max_size = 1
-      # This value is ignored after the initial creation
-      # https://github.com/bryantbiggs/eks-desired-size-hack
-      desired_size = 1
-
-      # Blue is reserved for workloads that must not ride Karpenter capacity:
-      # CNPG database instances (consolidation and drift drains force a
-      # switchover whenever the bin-packer rearranges nodes) and the
-      # controllers that bootstrap scheduling itself. karpenter and coredns
-      # tolerate this taint out of the box; the cnpg-database template's
-      # karpenter marker block (fluxcd repo, apps/templates/cnpg-database)
-      # adds the matching toleration alongside the node affinity that pins
-      # databases here. Everything else drifts to Karpenter nodes as pods
-      # restart: EKS applies taint updates to existing group nodes in place
-      # (no node rotation), and a NO_SCHEDULE taint never evicts running
-      # pods. DaemonSets need the toleration too — one that lacks it keeps
-      # its running pods but stops scheduling onto REPLACEMENT blue nodes.
-      taints = {
-        critical_addons_only = {
-          key    = "CriticalAddonsOnly"
-          value  = "true"
-          effect = "NO_SCHEDULE"
-        }
-      }
-    }
-
+  blue_cluster = {
+    name                       = module.eks.cluster_name
+    endpoint                   = module.eks.cluster_endpoint
+    certificate_authority_data = module.eks.cluster_certificate_authority_data
+    service_cidr               = module.eks.cluster_service_cidr
+    ip_family                  = module.eks.cluster_ip_family
+    node_security_group_id     = module.eks.node_security_group_id
   }
+
+  # For cloudwatch-alarms.tf.
+  blue_node_groups = zipmap(local.blue_node_group_names, [module.blue_1, module.blue_2, module.blue_3])
+}
+
+# Pin the AMI rather than letting the module default it to "latest
+# release for this cluster version", which is what it does when
+# ami_release_version is null. Unpinned, a new EKS AMI release becomes a
+# node rotation on whatever PR merges next: the plan that set off the
+# PodEvictionFailure incident behind the per-AZ split was a single line,
+#
+#   ~ release_version = "1.35.7-20260903" -> "1.35.8-20260917"
+#
+# on a PR that had nothing to do with node groups. Rotating the nodes
+# the databases sit on deserves to be its own reviewable change, with a
+# plan that says so.
+#
+# ./update_node_ami.sh bumps this the way update_eks_addons.sh bumps the
+# addon pins. A release version belongs to one Kubernetes minor, so bump
+# it in the same commit as cluster_version.
+#
+# blue_2 and blue_3 take version and AMI from the gate before them, so each
+# waits for the previous group.
+module "blue_1" {
+  source = "./modules/blue-node-group"
+
+  name                = local.blue_node_group_names[0]
+  subnet_id           = module.vpc.private_subnets[0]
+  kubernetes_version  = module.eks.cluster_version
+  ami_release_version = var.node_ami_release_version
+  instance_types      = local.blue_instance_types
+  cluster             = local.blue_cluster
+  ebs_kms_key_arn     = module.ebs_kms_key.key_arn
+}
+
+resource "time_sleep" "blue_1_settled" {
+  create_duration = local.blue_settle_duration
+
+  # Changes that rotate nodes; each re-runs the settle. Must be known at plan.
+  triggers = {
+    kubernetes_version  = module.eks.cluster_version
+    ami_release_version = var.node_ami_release_version
+    instance_types      = join(",", local.blue_instance_types)
+  }
+
+  depends_on = [module.blue_1]
+}
+
+module "blue_2" {
+  source = "./modules/blue-node-group"
+
+  name                = local.blue_node_group_names[1]
+  subnet_id           = module.vpc.private_subnets[1]
+  kubernetes_version  = time_sleep.blue_1_settled.triggers["kubernetes_version"]
+  ami_release_version = time_sleep.blue_1_settled.triggers["ami_release_version"]
+  instance_types      = local.blue_instance_types
+  cluster             = local.blue_cluster
+  ebs_kms_key_arn     = module.ebs_kms_key.key_arn
+}
+
+resource "time_sleep" "blue_2_settled" {
+  create_duration = local.blue_settle_duration
+  triggers        = time_sleep.blue_1_settled.triggers
+  depends_on      = [module.blue_2]
+}
+
+module "blue_3" {
+  source = "./modules/blue-node-group"
+
+  name                = local.blue_node_group_names[2]
+  subnet_id           = module.vpc.private_subnets[2]
+  kubernetes_version  = time_sleep.blue_2_settled.triggers["kubernetes_version"]
+  ami_release_version = time_sleep.blue_2_settled.triggers["ami_release_version"]
+  instance_types      = local.blue_instance_types
+  cluster             = local.blue_cluster
+  ebs_kms_key_arn     = module.ebs_kms_key.key_arn
+}
+
+# Keys assume zones a, b and c.
+moved {
+  from = module.eks.module.eks_managed_node_group["blue-a"]
+  to   = module.blue_1.module.node_group
+}
+
+moved {
+  from = module.eks.module.eks_managed_node_group["blue-b"]
+  to   = module.blue_2.module.node_group
+}
+
+moved {
+  from = module.eks.module.eks_managed_node_group["blue-c"]
+  to   = module.blue_3.module.node_group
 }
 
 ################################################################################

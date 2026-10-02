@@ -9,6 +9,7 @@ updates:
     directories:
     - bootstrap
     - cluster
+    - cluster/modules/blue-node-group
     - examples
     schedule:
       interval: weekly

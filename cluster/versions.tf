@@ -8,6 +8,10 @@ terraform {
       # 6.52.0 is the minimum required by terraform-aws-modules/eks 21.24.0.
       version = "6.62.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "0.14.1"
+    }
   }
 
   # Naming schemes based on https://github.com/trussworks/terraform-aws-bootstrap?tab=readme-ov-file#using-the-backend
