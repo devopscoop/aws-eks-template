@@ -48,7 +48,7 @@ New code must use those exact literals for those four concepts, or a fork will s
 OpenTofu is never installed directly: `tenv` supplies `tofu`, pinned by `cluster/.opentofu-version`. That version is duplicated in `required_version` in `cluster/versions.tf`, so change both with the script rather than by hand:
 
 ```shell
-cd cluster && ./upgrade_opentofu.sh   # latest stable → .opentofu-version + versions.tf, then installs it via tenv
+cd cluster && ./update_opentofu.sh    # latest stable → .opentofu-version + versions.tf, then installs it via tenv
 ```
 
 Everything else runs from `cluster/` with `AWS_PROFILE` exported (README covers aws-sso onboarding; never `aws configure`):
@@ -58,12 +58,16 @@ tofu init
 tofu fmt -recursive -check    # CI reports this on the PR but does not fail on it
 tofu validate -no-color
 tofu plan -concise -no-color -input=false -out=plan.file
+./update_eks_version.sh       # rewrites cluster_version in terraform.tfvars to the newest Kubernetes version EKS offers
 ./update_eks_addons.sh        # rewrites every eks_addon_version_* in terraform.tfvars to the latest for cluster_version
 ./update_node_ami.sh          # rewrites node_ami_release_version in terraform.tfvars to the latest AMI for cluster_version,
                               # and opens a fluxcd-template PR pinning Karpenter's EC2NodeClass to the same release
-./upgrade_eks_version.sh      # rewrites cluster_version in terraform.tfvars to the newest Kubernetes version EKS offers
 zizmor .github/workflows      # audit workflows after changing them
 ```
+
+The three `update_*` scripts in that block run in the order listed, because the add-on and AMI scripts look versions up for whatever `cluster_version` is. `.claude/skills/update-versions/SKILL.md` runs all four version scripts in order, caps a multi-minor Kubernetes jump, validates, and reports old → new values. Follow it when asked to "update everything".
+
+Scripts that rewrite a version pin are named `update_*`, after the EKS API's own verbs (`update-cluster-version`, `update-addon`, `update-nodegroup-version`). None of them upgrades anything; that happens when CI applies the change. Keep "upgrade" for the act itself, such as the control-plane upgrade that `cluster_version` triggers.
 
 There is no test suite. `fmt` / `validate` / `plan` are the entire verification story, and `plan` is the only step that catches real errors — so prefer changes a plan can actually exercise, and say so plainly when a change can only be validated by applying it.
 

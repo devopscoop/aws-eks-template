@@ -11,7 +11,7 @@ brew "aws-sso-cli"
 
 # tenv - version manager that installs/pins OpenTofu (`tofu`) from .opentofu-version.
 # Per the README, do NOT install opentofu directly; tenv provides the `tofu` binary.
-# Used by upgrade_opentofu.sh and for `tofu init/plan/apply` in bootstrap/ and cluster/.
+# Used by update_opentofu.sh and for `tofu init/plan/apply` in bootstrap/ and cluster/.
 brew "tenv"
 
 # jq - JSON parsing in cluster/update_eks_addons.sh
