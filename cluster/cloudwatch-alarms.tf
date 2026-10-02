@@ -311,7 +311,7 @@ module "alarms_kms_key" {
   count = local.create_alarm_topic ? 1 : 0
 
   source  = "terraform-aws-modules/kms/aws"
-  version = "4.2.1"
+  version = "4.2.2"
 
   description = "Customer managed key to encrypt the ${local.name} CloudWatch alarms SNS topic"
 
