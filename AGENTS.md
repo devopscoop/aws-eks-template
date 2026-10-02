@@ -29,6 +29,8 @@ Only AWS infrastructure lives here. Everything that runs *inside* Kubernetes (He
 - The pattern for any in-cluster workload that needs AWS permissions is: create the IRSA role here, `output` its ARN, then paste that ARN into the matching `eks.amazonaws.com/role-arn` ServiceAccount annotation in fluxcd-template. See `cert-manager.tf`, `external-dns.tf`, `aws-load-balancer-controller.tf`, `image-reflector-controller.tf`, and the IRSA half of `tempo.tf` — they are all the same 20-line shape.
 - Outputs are this repo's interface with fluxcd-template (`efs_id`, `tempo_bucket_name`, the `*_role_arn`s). Every one of them has a `description` naming the file it gets pasted into; keep that true when adding outputs.
 
+The managed node groups are `module.blue_1`..`blue_3` in `cluster/main.tf`, each a call of `cluster/modules/blue-node-group`, chained through `time_sleep` gates so they update one at a time, because a CNPG database can only spare one instance at a time.
+
 Human cluster access comes from `local.sso_access_entries` in `data.tf`, which discovers `AWSReservedSSO_*` role ARNs by regex because those ARNs have a dynamic suffix. Add new permission sets there rather than hardcoding ARNs into `access_entries` in `main.tf`. Read-only SSO roles are also put in a `cluster-viewers` Kubernetes group so fluxcd-template can bind them to CRD view rights.
 
 ### Placeholder values and `quickstart.sh`

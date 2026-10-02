@@ -45,7 +45,7 @@ resource "aws_cloudwatch_metric_alarm" "node_cpu" {
   # for_each keys even before the cluster exists; only the ASG name inside
   # dimensions is resolved at apply. One alarm per zone now, not one per group
   # of three.
-  for_each = module.eks.eks_managed_node_groups
+  for_each = local.blue_node_groups
 
   alarm_name        = "${local.name}-${each.key}-node-cpu-high"
   alarm_description = "CPUUtilization of a node in the ${each.key} EKS managed node group of cluster ${local.name} has been >= ${local.node_cpu_alarm_threshold}% for ${local.node_cpu_alarm_minutes} minutes."

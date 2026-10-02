@@ -38,7 +38,7 @@ EKS upgrades the control plane one minor version at a time, so the script moves 
 - **Unchanged:** carry on.
 - **One minor higher:** carry on, and lead the report with it (see below). If the script named a newer version, tell the user that reaching it takes another run after this one is applied.
 
-Run 3 and 4 in the same pass even when `cluster_version` moved. Don't hold them back for a later apply. They look pins up for the new minor, and `module.eks` already applies everything in upgrade order: the node groups wait on the control plane, and the add-ons wait on the node groups (`vpc-cni` and `eks-pod-identity-agent` are `before_compute`, so they wait only on the control plane). Holding back 4 would break the apply. The node groups take their Kubernetes version from the control plane, so they would ask EKS for the new minor with an AMI release from the old one.
+Run 3 and 4 in the same pass even when `cluster_version` moved. Don't hold them back for a later apply. They look pins up for the new minor, and the apply already runs in upgrade order: the add-ons and the first node group wait on the control plane, and each later node group waits on the one before it. Holding back 4 would break the apply. The node groups take their Kubernetes version from the control plane, so they would ask EKS for the new minor with an AMI release from the old one.
 
 A Kubernetes minor bump is the biggest change this skill can make: the control plane upgrades and every node is replaced. If the cluster already exists, look for upgrade blockers:
 
