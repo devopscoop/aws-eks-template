@@ -58,14 +58,14 @@ tofu init
 tofu fmt -recursive -check    # CI reports this on the PR but does not fail on it
 tofu validate -no-color
 tofu plan -concise -no-color -input=false -out=plan.file
-./update_eks_version.sh       # rewrites cluster_version in terraform.tfvars to the newest Kubernetes version EKS offers
+./update_eks_version.sh       # steps cluster_version in terraform.tfvars up to the next Kubernetes version EKS offers (one minor per run)
 ./update_eks_addons.sh        # rewrites every eks_addon_version_* in terraform.tfvars to the latest for cluster_version
 ./update_node_ami.sh          # rewrites node_ami_release_version in terraform.tfvars to the latest AMI for cluster_version,
                               # and opens a fluxcd-template PR pinning Karpenter's EC2NodeClass to the same release
 zizmor .github/workflows      # audit workflows after changing them
 ```
 
-The three `update_*` scripts in that block run in the order listed, because the add-on and AMI scripts look versions up for whatever `cluster_version` is. `.claude/skills/update-versions/SKILL.md` runs all four version scripts in order, caps a multi-minor Kubernetes jump, validates, and reports old → new values. Follow it when asked to "update everything".
+The three `update_*` scripts in that block run in the order listed, because the add-on and AMI scripts look versions up for whatever `cluster_version` is. `.claude/skills/update-versions/SKILL.md` runs all four version scripts in order, checks upgrade readiness when the Kubernetes minor moves, validates, and reports old → new values. Follow it when asked to "update everything".
 
 Scripts that rewrite a version pin are named `update_*`, after the EKS API's own verbs (`update-cluster-version`, `update-addon`, `update-nodegroup-version`). None of them upgrades anything; that happens when CI applies the change. Keep "upgrade" for the act itself, such as the control-plane upgrade that `cluster_version` triggers.
 
