@@ -65,6 +65,8 @@ tofu plan -concise -no-color -input=false -out=plan.file
 zizmor .github/workflows      # audit workflows after changing them
 ```
 
+The four version scripts depend on each other: `update_eks_addons.sh` and `update_node_ami.sh` look versions up for whatever `cluster_version` is, so `upgrade_eks_version.sh` has to run before them, not last as listed above. `.claude/skills/update-versions/SKILL.md` runs all four in order, caps a multi-minor Kubernetes jump, validates, and reports old → new values. Follow it when asked to "update everything".
+
 There is no test suite. `fmt` / `validate` / `plan` are the entire verification story, and `plan` is the only step that catches real errors — so prefer changes a plan can actually exercise, and say so plainly when a change can only be validated by applying it.
 
 ## CI/CD
