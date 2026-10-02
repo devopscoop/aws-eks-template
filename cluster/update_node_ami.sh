@@ -19,8 +19,6 @@ set -Eeuo pipefail
 # https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-karpenter_dir=apps/karpenter-custom-resources
-
 # Don't hardcode terraform.tfvars: forks rename it (e.g. prod.auto.tfvars),
 # which silently turned this script into a no-op.
 tfvars_file=$(grep -lE '^node_ami_release_version' "${SCRIPT_DIR}"/*.tfvars)
@@ -70,9 +68,9 @@ work_dir=$(mktemp -d)
 trap 'rm -rf "${work_dir}"' EXIT
 git clone --quiet --depth 1 git@github.com:devopscoop/fluxcd-template.git "${work_dir}"
 
-files=$(git -C "${work_dir}" grep -lE 'alias: al2023@' -- "${karpenter_dir}/*.yaml") \
-  || { echo "ERROR: no 'alias: al2023@' in fluxcd-template's ${karpenter_dir}/*.yaml." >&2; exit 1; }
-old_aliases=$(git -C "${work_dir}" grep -hoE 'alias: al2023@[^[:space:]]+' -- "${karpenter_dir}/*.yaml" \
+files=$(git -C "${work_dir}" grep -lE 'alias: al2023@' -- "apps/karpenter-custom-resources/*.yaml") \
+  || { echo "ERROR: no 'alias: al2023@' in fluxcd-template's apps/karpenter-custom-resources/*.yaml." >&2; exit 1; }
+old_aliases=$(git -C "${work_dir}" grep -hoE 'alias: al2023@[^[:space:]]+' -- "apps/karpenter-custom-resources/*.yaml" \
   | sed 's/^alias: //' | sort -u | paste -sd ' ' -)
 
 while IFS= read -r file; do
@@ -98,7 +96,7 @@ EOF
 git -C "${work_dir}" push --quiet origin "${branch}"
 
 pr_url=$(gh pr create --repo devopscoop/fluxcd-template --head "${branch}" --title "${title}" --body-file - <<EOF
-Pins every EC2NodeClass in \`${karpenter_dir}/\` to \`al2023@${ami_version}\` (was \`${old_aliases}\`): the newest AL2023 EKS-optimized release for EKS ${cluster_version}, and the release aws-eks-template's managed node groups now pin (\`node_ami_release_version = "${release_version}"\`).
+Pins every EC2NodeClass in \`apps/karpenter-custom-resources/\` to \`al2023@${ami_version}\` (was \`${old_aliases}\`): the newest AL2023 EKS-optimized release for EKS ${cluster_version}, and the release aws-eks-template's managed node groups now pin (\`node_ami_release_version = "${release_version}"\`).
 
 Merging this drifts every Karpenter node, and Karpenter replaces them at the pace each NodePool's disruption budget allows.
 
