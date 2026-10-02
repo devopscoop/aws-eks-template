@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Upgrades the OpenTofu version used by this cluster config to the latest stable
+# Updates the OpenTofu version used by this cluster config to the latest stable
 # release. Asks tenv for the newest stable version, writes it to the
 # .opentofu-version file (read by tenv locally and by setup-opentofu in CI) and
 # the required_version guard in versions.tf, then installs it via tenv.
 #
 # Usage:
 #
-#   ./upgrade_opentofu.sh
+#   ./update_opentofu.sh
 
 # https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
 # Not using "-x" because we aren't debugging.
@@ -25,7 +25,7 @@ if [[ -z "$version" ]]; then
   exit 1
 fi
 
-echo "Upgrading OpenTofu to ${version}"
+echo "Updating OpenTofu to ${version}"
 
 echo "$version" > "${SCRIPT_DIR}/.opentofu-version"
 

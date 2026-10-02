@@ -1,6 +1,6 @@
 ---
 name: update-versions
-description: Bump every version pin in this EKS cluster config by running the cluster/ update scripts in dependency order (upgrade_opentofu.sh, upgrade_eks_version.sh, update_eks_addons.sh, update_node_ami.sh, the last of which also opens the matching Karpenter AMI PR in fluxcd-template), then validate and report old → new. Use whenever the user asks to update, upgrade, or bump versions, refresh pins, run "the update scripts", do routine version maintenance, or upgrade OpenTofu, EKS/Kubernetes, the EKS add-ons, or the node AMI. Use it even when they name only one of those, because the scripts read each other's output.
+description: Bump every version pin in this EKS cluster config by running the cluster/ update scripts in dependency order (update_opentofu.sh, update_eks_version.sh, update_eks_addons.sh, update_node_ami.sh, the last of which also opens the matching Karpenter AMI PR in fluxcd-template), then validate and report old → new. Use whenever the user asks to update, upgrade, or bump versions, refresh pins, run "the update scripts", do routine version maintenance, or upgrade OpenTofu, EKS/Kubernetes, the EKS add-ons, or the node AMI. Use it even when they name only one of those, because the scripts read each other's output.
 ---
 
 # Update every version pin
@@ -9,8 +9,8 @@ Four scripts in `cluster/` each rewrite one kind of pin. They find their files f
 
 | # | Script | Rewrites | Why this position |
 | - | ------ | -------- | ----------------- |
-| 1 | `upgrade_opentofu.sh` | `.opentofu-version` and `required_version` in `versions.tf`, then installs that version with tenv | Doesn't depend on the others. Running it first means the `tofu fmt` the other scripts run uses the new version. |
-| 2 | `upgrade_eks_version.sh` | `cluster_version` in the tfvars | 3 and 4 read `cluster_version`, so it has to be final before they run. |
+| 1 | `update_opentofu.sh` | `.opentofu-version` and `required_version` in `versions.tf`, then installs that version with tenv | Doesn't depend on the others. Running it first means the `tofu fmt` the other scripts run uses the new version. |
+| 2 | `update_eks_version.sh` | `cluster_version` in the tfvars | 3 and 4 read `cluster_version`, so it has to be final before they run. |
 | 3 | `update_eks_addons.sh` | every `eks_addon_version_*` in the tfvars | Latest add-on build for `cluster_version`. |
 | 4 | `update_node_ami.sh` | `node_ami_release_version` in the tfvars, plus a fluxcd-template PR pinning Karpenter's `alias: al2023@vYYYYMMDD` to the same release | An AMI release exists for only one Kubernetes minor. |
 
@@ -31,7 +31,7 @@ Stop at the first failure and show its error. Don't work around a failure by han
 
 There's one exception. Script 1 is independent of the others, so if it fails, run `git checkout -- cluster/.opentofu-version cluster/versions.tf` and carry on with 2–4. The tree was clean when you started, so this only discards the script's half-finished write. Leaving that write in place would point tenv at a version that isn't installed and break the `tofu fmt` that scripts 2–4 run.
 
-### After `upgrade_eks_version.sh`: check how far it jumped
+### After `update_eks_version.sh`: check how far it jumped
 
 EKS upgrades the control plane one minor version at a time, and the script deliberately leaves that check to you. Compare the new `cluster_version` with the one you wrote down:
 
