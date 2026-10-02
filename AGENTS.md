@@ -59,7 +59,8 @@ tofu fmt -recursive -check    # CI reports this on the PR but does not fail on i
 tofu validate -no-color
 tofu plan -concise -no-color -input=false -out=plan.file
 ./update_eks_addons.sh        # rewrites every eks_addon_version_* in terraform.tfvars to the latest for cluster_version
-./update_node_ami.sh          # rewrites node_ami_release_version in terraform.tfvars to the latest AMI for cluster_version
+./update_node_ami.sh          # rewrites node_ami_release_version in terraform.tfvars to the latest AMI for cluster_version,
+                              # and opens a fluxcd-template PR pinning Karpenter's EC2NodeClass to the same release
 ./upgrade_eks_version.sh      # rewrites cluster_version in terraform.tfvars to the newest Kubernetes version EKS offers
 zizmor .github/workflows      # audit workflows after changing them
 ```
