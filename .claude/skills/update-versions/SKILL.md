@@ -31,13 +31,14 @@ Stop at the first failure and show its error. Don't work around a failure by han
 
 There's one exception. Script 1 is independent of the others, so if it fails, run `git checkout -- cluster/.opentofu-version cluster/versions.tf` and carry on with 2–4. The tree was clean when you started, so this only discards the script's half-finished write. Leaving that write in place would point tenv at a version that isn't installed and break the `tofu fmt` that scripts 2–4 run.
 
-### After `update_eks_version.sh`: check how far it jumped
+### After `update_eks_version.sh`: check whether it moved
 
-EKS upgrades the control plane one minor version at a time, and the script deliberately leaves that check to you. Compare the new `cluster_version` with the one you wrote down:
+EKS upgrades the control plane one minor version at a time, so the script moves `cluster_version` up by one offered version at most. When EKS offers something newer still, it prints a second line naming it. Compare the new `cluster_version` with the one you wrote down:
 
 - **Unchanged:** carry on.
-- **One minor higher:** carry on, and lead the report with it (see below).
-- **More than one minor higher:** before running 3 and 4, edit `cluster_version` to exactly one minor above the old value. Tell the user the newest version on offer and that reaching it takes another run after this one is applied.
+- **One minor higher:** carry on, and lead the report with it (see below). If the script named a newer version, tell the user that reaching it takes another run after this one is applied.
+
+Run 3 and 4 in the same pass even when `cluster_version` moved. Don't hold them back for a later apply. They look pins up for the new minor, and `module.eks` already applies everything in upgrade order: the node groups wait on the control plane, and the add-ons wait on the node groups (`vpc-cni` and `eks-pod-identity-agent` are `before_compute`, so they wait only on the control plane). Holding back 4 would break the apply. The node groups take their Kubernetes version from the control plane, so they would ask EKS for the new minor with an AMI release from the old one.
 
 A Kubernetes minor bump is the biggest change this skill can make: the control plane upgrades and every node is replaced. If the cluster already exists, look for upgrade blockers:
 
@@ -74,7 +75,7 @@ Start with a table built from `git diff -- cluster/`:
 List pins that were already current on one line under the table instead of giving each a row. Then cover:
 
 - **The fluxcd-template PR:** its URL, or "already open", or "already pinned".
-- **A `cluster_version` change:** that it means a control-plane upgrade plus a full node replacement, whether it was capped at one minor, and any upgrade insights that came back. Also say to merge the fluxcd-template PR only *after* this repo's change is applied. Karpenter resolves the alias for the cluster's current minor, but the release date came from the new minor.
+- **A `cluster_version` change:** that it means a control-plane upgrade plus a full node replacement, the newer version EKS offers if the script named one, and any upgrade insights that came back. Also say to merge the fluxcd-template PR only *after* this repo's change is applied. Karpenter resolves the alias for the cluster's current minor, but the release date came from the new minor.
 - **A `node_ami_release_version` change:** applying it replaces the managed node groups, which are the nodes the CNPG databases run on. The comment on `ami_release_version` in `main.tf` explains why that replacement should be a reviewable change and not something that slips in, so the PR description should say it.
 - **What was verified:** fmt and validate passed or failed. The plan hasn't run.
 
