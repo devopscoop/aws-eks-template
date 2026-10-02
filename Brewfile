@@ -23,8 +23,11 @@ brew "kubernetes-cli"
 # k9s - terminal UI for browsing and managing the EKS cluster
 brew "k9s"
 
-# git - fork/subtree workflow in the README, quickstart.sh
+# git - fork/subtree workflow in the README, quickstart.sh, cluster/update_node_ami.sh
 brew "git"
+
+# GitHub CLI (`gh`) - cluster/update_node_ami.sh opens the Karpenter AMI PR in fluxcd-template
+brew "gh"
 
 # zizmor - GitHub Actions workflow auditing, referenced in .github/workflows/opentofu-aws-eks.yml
 brew "zizmor"
