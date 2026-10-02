@@ -7,13 +7,10 @@
 #   directory's tfvars is rewritten in place, for you to commit.
 # - Karpenter: fluxcd-template pins its EC2NodeClasses with
 #   `alias: al2023@vYYYYMMDD` in apps/karpenter-custom-resources/. That lives
-#   in another repo, so this opens a PR there (or prints the one already
-#   open). Merging it drifts every Karpenter node, and Karpenter replaces them
-#   at the pace each NodePool's disruption budget allows.
-#
-# The PR goes to devopscoop/fluxcd-template, whose org quickstart.sh rewrites
-# in a fork; set FLUXCD_REPO=OWNER/NAME if your fluxcd repo is named
-# differently. Opening it needs `gh auth login` and push access to that repo.
+#   in another repo, so this opens a PR in devopscoop/fluxcd-template (or
+#   prints the one already open). Merging it drifts every Karpenter node, and
+#   Karpenter replaces them at the pace each NodePool's disruption budget
+#   allows. Opening it needs `gh auth login` and push access to that repo.
 
 # https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
 # Not using "-x" because we aren't debugging.
@@ -22,7 +19,6 @@ set -Eeuo pipefail
 # https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-fluxcd_repo=${FLUXCD_REPO:-devopscoop/fluxcd-template}
 karpenter_dir=apps/karpenter-custom-resources
 
 # Don't hardcode terraform.tfvars: forks rename it (e.g. prod.auto.tfvars),
@@ -64,7 +60,7 @@ ami_version="v${release_version##*-}"
 
 # One branch per release, so a rerun finds the PR it already opened.
 branch="karpenter-ami-${ami_version}"
-pr_url=$(gh pr list --repo "${fluxcd_repo}" --head "${branch}" --state open --json url --jq '.[0].url // empty')
+pr_url=$(gh pr list --repo devopscoop/fluxcd-template --head "${branch}" --state open --json url --jq '.[0].url // empty')
 if [[ -n "${pr_url}" ]]; then
   echo "al2023@${ami_version} (Karpenter): already open as ${pr_url}"
   exit 0
@@ -72,10 +68,10 @@ fi
 
 work_dir=$(mktemp -d)
 trap 'rm -rf "${work_dir}"' EXIT
-git clone --quiet --depth 1 "git@github.com:${fluxcd_repo}.git" "${work_dir}"
+git clone --quiet --depth 1 git@github.com:devopscoop/fluxcd-template.git "${work_dir}"
 
 files=$(git -C "${work_dir}" grep -lE 'alias: al2023@' -- "${karpenter_dir}/*.yaml") \
-  || { echo "ERROR: no 'alias: al2023@' in ${fluxcd_repo}'s ${karpenter_dir}/*.yaml." >&2; exit 1; }
+  || { echo "ERROR: no 'alias: al2023@' in fluxcd-template's ${karpenter_dir}/*.yaml." >&2; exit 1; }
 old_aliases=$(git -C "${work_dir}" grep -hoE 'alias: al2023@[^[:space:]]+' -- "${karpenter_dir}/*.yaml" \
   | sed 's/^alias: //' | sort -u | paste -sd ' ' -)
 
@@ -85,7 +81,7 @@ while IFS= read -r file; do
 done <<< "$files"
 
 if git -C "${work_dir}" diff --quiet; then
-  echo "al2023@${ami_version} (Karpenter): ${fluxcd_repo} already pins it"
+  echo "al2023@${ami_version} (Karpenter): fluxcd-template already pins it"
   exit 0
 fi
 
@@ -101,7 +97,7 @@ aws-eks-template's cluster/update_node_ami.sh.
 EOF
 git -C "${work_dir}" push --quiet origin "${branch}"
 
-pr_url=$(gh pr create --repo "${fluxcd_repo}" --head "${branch}" --title "${title}" --body-file - <<EOF
+pr_url=$(gh pr create --repo devopscoop/fluxcd-template --head "${branch}" --title "${title}" --body-file - <<EOF
 Pins every EC2NodeClass in \`${karpenter_dir}/\` to \`al2023@${ami_version}\` (was \`${old_aliases}\`): the newest AL2023 EKS-optimized release for EKS ${cluster_version}, and the release aws-eks-template's managed node groups now pin (\`node_ami_release_version = "${release_version}"\`).
 
 Merging this drifts every Karpenter node, and Karpenter replaces them at the pace each NodePool's disruption budget allows.
