@@ -280,7 +280,9 @@ module "eks" {
       # ./update_node_ami.sh bumps this the way update_eks_addons.sh bumps the
       # addon pins. A release version belongs to one Kubernetes minor, so bump
       # it in the same commit as cluster_version.
-      ami_release_version = var.node_ami_release_version
+      # The module ignores the pin unless use_latest_ami_release_version is off.
+      ami_release_version            = var.node_ami_release_version
+      use_latest_ami_release_version = false
 
       # One node per zone; three groups make the same three nodes as before.
       min_size = 1
