@@ -18,6 +18,17 @@ on:
 defaults:
   run:
     working-directory: cluster
+# Every run, plan or apply, takes the lock on the same state file, so
+# overlapping runs (e.g. Dependabot opening several PRs at once) fail with
+# "Error acquiring the state lock". Run them one at a time instead. The default
+# `queue: single` keeps only one run pending and cancels the rest; `max` queues
+# up to 100 in FIFO order. Never cancel in progress: killing a run mid-apply
+# can leave the state locked or half-applied.
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#concurrency
+concurrency:
+  group: opentofu-aws-eks-state
+  queue: max
+  cancel-in-progress: false
 permissions:
   id-token: write
   contents: read
