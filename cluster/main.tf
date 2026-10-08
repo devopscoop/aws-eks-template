@@ -61,6 +61,30 @@ locals {
   # too, which is not a decision that should ride along with a networking one.
   blue_azs = slice(local.azs, 0, 3)
 
+  # The database node group generations, keyed by the name prefix of their
+  # groups, each with the instance type its nodes run. One generation is the
+  # normal state. Changing instance_types REPLACES a managed node group, and
+  # deleting a group terminates its node a few minutes later regardless of
+  # PodDisruptionBudgets, so the type is never changed in place: add the next
+  # generation here (db-g2, then db-g3, ... — the number only goes up), move
+  # the databases onto its nodes by hand, then delete this entry. The full
+  # procedure is docs/changing-instance-types.md.
+  #
+  # "blue" is generation 1 and keeps its name: a group's name comes from its
+  # key, so renaming it would replace it. With only blue here the generated
+  # keys are still blue-a, blue-b and blue-c, so this map is a no-op plan.
+  db_node_group_generations = {
+    blue = { instance_types = ["t3a.large"] }
+  }
+
+  # One node group per generation per zone. Each entry carries the index of
+  # its zone so the group below can pin itself to that zone's private subnet.
+  db_node_groups = merge([
+    for generation, group in local.db_node_group_generations : {
+      for i, az in local.blue_azs : "${generation}-${trimprefix(az, local.region)}" => merge(group, { az_index = i })
+    }
+  ]...)
+
   tags = {
     GitRepo = var.tags_git_repo
   }
@@ -221,13 +245,13 @@ module "eks" {
   # group still leaves room for the replacement node, because the update
   # workflow raises the ASG's own maximum and desired size for its duration.
   eks_managed_node_groups = {
-    for i, az in local.blue_azs : "blue-${trimprefix(az, local.region)}" => {
+    for key, group in local.db_node_groups : key => {
 
       # Pin this group to one zone. module.vpc.private_subnets is built from
       # local.azs in order (see the vpc module below), the same pairing the EFS
       # mount targets rely on, and local.blue_azs is a prefix of local.azs so
       # the indexes line up.
-      subnet_ids = [module.vpc.private_subnets[i]]
+      subnet_ids = [module.vpc.private_subnets[group.az_index]]
 
       # A custom launch template is required to configure the root volume via
       # block_device_mappings (KMS-encrypted, below). This means
@@ -263,7 +287,8 @@ module "eks" {
 
       # instance_types = ["t4g.large"]
       # ami_type       = "AL2023_ARM_64_STANDARD"
-      instance_types = ["t3a.large"]
+      # The type lives in local.db_node_group_generations (top of this file).
+      instance_types = group.instance_types
 
       # Pin the AMI rather than letting the module default it to "latest
       # release for this cluster version", which is what it does when
