@@ -1,35 +1,5 @@
 ################################################################################
-# EC2 CPU CloudWatch alarms
-#
-# Vanta's "Server CPU monitored (AWS)" test requires every EC2 instance to be
-# covered by a CloudWatch alarm on the CPUUtilization metric. The managed node
-# group nodes are launched and replaced by an Auto Scaling Group, so
-# per-instance alarms can't be declared statically in Terraform. Instead each
-# node group gets one alarm on the AWS/EC2 CPUUtilization metric scoped to its
-# ASG. The Maximum statistic is the highest per-instance value in each period,
-# so the alarm fires when ANY node in the group runs hot — per-node alerting
-# semantics without per-instance resources. CPU monitoring supports SOC 2
-# CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.16 (Monitoring
-# activities).
-#
-# Vanta resolves an instance's ASG membership, so this ASG-scoped alarm is
-# sufficient on its own for managed node group instances — it does not also
-# need one dimensioned on InstanceId. Confirmed against a live cluster on
-# 2026-08-31: the test passed for every managed node group instance while
-# this was the only EC2 CPUUtilization alarm in the account.
-#
-# What it cannot cover is an instance belonging to no ASG. On clusters running
-# Karpenter (fluxcd-template's apps/karpenter) nodes are launched through EC2
-# Fleet and carry no aws:autoscaling:groupName tag, so nothing here matches
-# them and Vanta flags each one. Alarming on them would mean per-instance
-# alarms created and deleted as nodes churn — Karpenter consolidates and
-# expires nodes continuously — which needs a reconciler or an EventBridge
-# Lambda holding CloudWatch write credentials. fluxcd-template takes the
-# cheaper route instead and tags those nodes VantaNoAlert in
-# apps/karpenter-custom-resources/ec2nodeclass.yaml, on the grounds that node
-# CPU is already alerted on in-cluster by node-exporter's NodeCPUHighUsage
-# rule. Per the VantaNoAlert note in AGENTS.md, that takes those instances out
-# of scope for every Vanta test, not just this one.
+# EC2 CPU alarms: one per node group ASG; Maximum fires when any node runs hot.
 ################################################################################
 
 locals {
@@ -40,11 +10,9 @@ locals {
 }
 
 resource "aws_cloudwatch_metric_alarm" "node_cpu" {
-  # The map keys ("ng-a-1", ...) are the node group names from main.tf, derived
-  # from local.node_group_generations and local.azs — a data source, so still
-  # resolved during plan and usable as for_each keys even before the cluster
-  # exists; only the ASG name inside dimensions is resolved at apply. One alarm
-  # per zone now, not one per group of three.
+  # One alarm per node group, on its ASG, which satisfies Vanta's per-instance
+  # CPU check. Karpenter nodes have no ASG; fluxcd-template tags them
+  # VantaNoAlert instead.
   for_each = module.eks.eks_managed_node_groups
 
   alarm_name        = "${local.name}-${each.key}-node-cpu-high"
@@ -69,26 +37,12 @@ resource "aws_cloudwatch_metric_alarm" "node_cpu" {
 }
 
 ################################################################################
-# SQS queue age CloudWatch alarms
-#
-# Vanta's "SQS queues monitored and alarmed" test requires every SQS queue to
-# be covered by a CloudWatch alarm on the ApproximateAgeOfOldestMessage
-# metric, which indicates message processing delays or queue blockage. Queue
-# monitoring supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022
-# Annex A 8.16 (Monitoring activities).
-#
-# The only queue in this root module is Karpenter's interruption queue
-# (karpenter.tf). A healthy Karpenter controller drains it within seconds, so
-# a message sitting for minutes means interruption handling is down and spot
-# reclaims / scheduled maintenance will hit nodes without graceful draining.
+# SQS queue age alarm on Karpenter's interruption queue (Vanta's SQS check).
 ################################################################################
 
 locals {
-  # Alert when the oldest message has been in the queue at least this long for
-  # queue_age_alarm_minutes. The Karpenter sub-module hardcodes the queue's
-  # message_retention_seconds to 300, so this metric can never exceed 300 —
-  # SQS silently drops older messages. The threshold must therefore stay well
-  # below 300 or the alarm could never fire.
+  # Karpenter's queue keeps messages for 300 s, so this must stay well below
+  # that. A message this old means interruption handling is down.
   queue_age_alarm_threshold_seconds = 120
   queue_age_alarm_minutes           = 10
 }
@@ -110,10 +64,7 @@ resource "aws_cloudwatch_metric_alarm" "karpenter_interruption_queue_age" {
   period              = 300
   evaluation_periods  = local.queue_age_alarm_minutes * 60 / 300
 
-  # SQS only emits metrics for queues that have been active in the last ~6
-  # hours; an idle interruption queue reports nothing at all. Without this the
-  # alarm would sit in INSUFFICIENT_DATA through every quiet stretch — no
-  # data means no stuck messages, so treat it as OK.
+  # An idle queue emits no metrics, and no data means no stuck messages.
   treat_missing_data = "notBreaching"
 
   alarm_actions = [local.alarm_topic_arn]
@@ -121,40 +72,7 @@ resource "aws_cloudwatch_metric_alarm" "karpenter_interruption_queue_age" {
 }
 
 ################################################################################
-# NLB target-group health CloudWatch alarms
-#
-# The AWS Load Balancer Controller creates an NLB (plus one target group per
-# listener port) for every LoadBalancer Service in the cluster — the Envoy
-# Gateway gateways from the companion fluxcd-template repo, which are the
-# cluster's only traffic entry points. When a target group has no healthy
-# targets, the cluster is down from the internet's perspective no matter what
-# the pods think, so that's the signal to alarm on. Load balancer monitoring
-# supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.16
-# (Monitoring activities).
-#
-# The controller mints the LB and target-group names (k8s-envoygat-…/<hash>),
-# and re-mints them whenever a Service is recreated or its traffic config
-# materially changes, so per-target-group alarms can't be declared statically
-# the way the node CPU alarms can. Hand-pinning the generated ARN suffixes has
-# been tried in a fork and rotted within days of an LB replacement. Instead,
-# discover the dimensions through the controller's own tags: every LB and
-# target group it manages carries elbv2.k8s.aws/cluster = <cluster name> and
-# service.k8s.aws/stack = <namespace>/<service>, and each target group names
-# its listener in service.k8s.aws/resource = <namespace>/<service>:<port>.
-# https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/configurations/#aws-resource-tags
-#
-# The discovery trade-off: data sources read at plan time, so alarm coverage
-# is only as fresh as the last pipeline run. Two consequences to know about:
-#
-#  - On a cluster where Flux hasn't created the gateway Services yet (first
-#    bootstrap), the lookups match nothing and no alarms exist. They appear on
-#    the first apply after the NLBs do — merge any PR, or re-run the apply
-#    workflow, once the gateways are up.
-#  - If a Service is recreated, the alarms keep the dead dimensions until the
-#    next apply. treat_missing_data = "breaching" below makes that state page
-#    loudly instead of sitting quietly in INSUFFICIENT_DATA while monitoring
-#    nothing — the fix is simply to re-run the pipeline, which re-reads the
-#    tags and updates the dimensions in place.
+# NLB target-group health alarms, found through the LB controller's tags.
 ################################################################################
 
 locals {
@@ -201,11 +119,9 @@ locals {
     r.tags["service.k8s.aws/stack"] => regex("loadbalancer/(.+)$", r.resource_arn)[0]
   }
 
-  # <namespace>-<service>-<port> (the service.k8s.aws/resource tag, sanitized
-  # for use in alarm names) => that target group's CloudWatch dimension pair.
-  # Target groups whose stack no longer has an LB are skipped: the controller
-  # can leave orphaned target groups behind, and an alarm on one could never
-  # receive data again.
+  # <namespace>-<service>-<port> => dimensions, read at plan time: re-run the
+  # apply after gateway Services are created or recreated. Target groups whose
+  # LB is gone are skipped.
   lbc_target_group_dimensions = {
     for r in data.aws_resourcegroupstaggingapi_resources.lbc_target_groups.resource_tag_mapping_list :
     replace(join("-", split("/", r.tags["service.k8s.aws/resource"])), ":", "-") => {
@@ -271,23 +187,7 @@ resource "aws_cloudwatch_metric_alarm" "nlb_no_healthy_hosts" {
 }
 
 ################################################################################
-# Alarm notification delivery
-#
-# An alarm with no action satisfies the Vanta test but alerts no one, so alarm
-# state changes publish to an SNS topic.
-#
-# Which topic depends on alarm_topic_arn. Set it and the alarms publish to a
-# topic that already exists in the account — the right answer whenever there
-# is one with a chat or paging integration hanging off it, because a topic
-# created here starts with no subscribers and stays that way until someone
-# remembers to populate alarm_email_addresses. An unsubscribed topic is the
-# failure mode this variable exists to avoid: the alarms look configured, the
-# Vanta test passes, and nothing reaches a human.
-#
-# Left empty, this module creates its own topic and subscribes
-# alarm_email_addresses to it (each address must click the confirmation link
-# SNS emails it), which keeps the template self-contained for a standalone
-# cluster.
+# Alarm notifications: alarm_topic_arn, else a topic for alarm_email_addresses.
 ################################################################################
 
 locals {
@@ -298,15 +198,9 @@ locals {
   alarm_topic_arn = local.create_alarm_topic ? one(aws_sns_topic.alarms[*].arn) : var.alarm_topic_arn
 }
 
-# CloudWatch alarms cannot publish to an SNS topic encrypted with the
-# AWS-managed alias/aws/sns key, because that key's policy can't be edited to
-# let the CloudWatch service use it. A customer managed key with the
-# cloudwatch.amazonaws.com grants below is the AWS-documented fix:
+# CloudWatch can't publish to an SNS topic encrypted with alias/aws/sns, so
+# the topic created here uses a customer managed key:
 # https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html#compatibility-with-aws-services
-#
-# Only relevant to the topic this module creates. A caller-supplied topic
-# brings its own encryption decision, and must already let CloudWatch publish
-# to it — an unencrypted topic does by default.
 module "alarms_kms_key" {
   count = local.create_alarm_topic ? 1 : 0
 
