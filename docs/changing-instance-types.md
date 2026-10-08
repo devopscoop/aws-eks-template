@@ -8,7 +8,7 @@ So an instance-type change is a rotation to a new **generation** of node groups,
 2. **By hand:** move each database instance from its old node to the new node in the same zone, one at a time, waiting until each is healthy.
 3. **PR 2:** delete the old generation once nothing on it matters.
 
-Generations are named `db-g<N>-<zone>`: `db-g2-a`, `db-g2-b`, `db-g2-c`, then `db-g3-…`. The number only goes up and is never reused. The current groups, `blue-a/b/c`, are generation 1 and keep their name: a node group's name comes from its map key, so renaming them would replace them. This procedure applies to anything else that replaces the groups too (a subnet or disk change, for example). Not to AMI and cluster version updates: those update the existing groups in place, and the per-AZ design handles them (see the comment above `eks_managed_node_groups` in `cluster/main.tf`).
+Node groups are named `ng-<zone>-<N>`, where N is the generation: a new cluster starts with `ng-a-1`, `ng-b-1` and `ng-c-1`, the first rotation adds `ng-a-2`, `ng-b-2` and `ng-c-2`, and so on. The number only goes up and is never reused. A node group's name comes from its map key, so renumbering a generation would replace its groups too. This procedure applies to anything else that replaces the groups too (a subnet or disk change, for example). Not to AMI and cluster version updates: those update the existing groups in place, and the per-AZ design handles them (see the comment above `eks_managed_node_groups` in `cluster/main.tf`).
 
 This runbook uses **goalert** / **goalert-db** throughout; for another database substitute its namespace and Cluster name (`<app>`, `<app>-db`). `kubectl get clusters.postgresql.cnpg.io -A` lists them all. Move one cluster at a time.
 
@@ -29,29 +29,29 @@ This runbook uses **goalert** / **goalert-db** throughout; for another database 
 
 ## 1. Add the next generation (PR 1)
 
-The node groups are generated from `local.db_node_group_generations` in `cluster/main.tf`: one entry per generation, keyed by the name prefix of its groups, expanded to one group per zone. If `main.tf` doesn't have this map yet, add it in its own PR first, with only `blue` in it. Its plan must show **no changes**; the keys stay `blue-a`, `blue-b` and `blue-c`.
+The node groups are generated from `local.node_group_generations` in `cluster/main.tf`: one entry per generation, keyed by generation number, expanded to one group per zone over `local.availability_zones`.
 
 ```hcl
 locals {
-  # The database node group generations, keyed by the name prefix of their
-  # groups. "blue" is generation 1; renaming it would replace it. To change
-  # instance types, add the next generation, move the databases, then remove
-  # the old one: docs/changing-instance-types.md.
-  db_node_group_generations = {
-    blue = { instance_types = ["t3a.large"] } # whatever the file has today
+  # The node group generations, keyed by generation number. Generation N's
+  # groups are named ng-<zone>-<N>. To change instance types, add the next
+  # generation, move the databases, then remove the old one:
+  # docs/changing-instance-types.md.
+  node_group_generations = {
+    1 = { instance_types = ["t3a.large"] } # whatever the file has today
   }
 
   # One node group per generation per zone, each carrying its zone's index so
   # the group can pin itself to that zone's private subnet.
-  db_node_groups = merge([
-    for generation, group in local.db_node_group_generations : {
-      for i, az in local.blue_azs : "${generation}-${trimprefix(az, local.region)}" => merge(group, { az_index = i })
+  node_groups = merge([
+    for generation, group in local.node_group_generations : {
+      for i, az in local.availability_zones : "ng-${trimprefix(az, local.region)}-${generation}" => merge(group, { az_index = i })
     }
   ]...)
 }
 
   eks_managed_node_groups = {
-    for key, group in local.db_node_groups : key => {
+    for key, group in local.node_groups : key => {
       subnet_ids = [module.vpc.private_subnets[group.az_index]]
       # ... unchanged ...
       instance_types = group.instance_types
@@ -63,9 +63,9 @@ locals {
 The rotation PR then adds an entry with the next number:
 
 ```hcl
-  db_node_group_generations = {
-    blue    = { instance_types = ["t3a.large"] }
-    "db-g2" = { instance_types = ["<new type>"] }
+  node_group_generations = {
+    1 = { instance_types = ["t3a.large"] }
+    2 = { instance_types = ["<new type>"] }
   }
 ```
 
@@ -153,7 +153,7 @@ Drain the old nodes, so the controllers that also tolerate the taint (karpenter,
 kubectl drain <old node> --ignore-daemonsets --delete-emptydir-data
 ```
 
-Then open PR 2, which removes the old generation from `db_node_group_generations`. Its plan must contain only `-`, for the old node groups and their launch templates, IAM roles and alarms. The workflow's node group guard (`.github/scripts/guard-node-group-removal.sh`, once it is in) refuses to apply a plan that removes a group whose nodes still have PVC-backed volumes attached, so if the apply fails here, a database is still on the old nodes. Once it applies, update the `instance_types` comment in `cluster/main.tf` with the new type and why it was chosen.
+Then open PR 2, which removes the old generation from `node_group_generations`. Its plan must contain only `-`, for the old node groups and their launch templates, IAM roles and alarms. The workflow's node group guard (`.github/scripts/guard-node-group-removal.sh`, once it is in) refuses to apply a plan that removes a group whose nodes still have PVC-backed volumes attached, so if the apply fails here, a database is still on the old nodes. Once it applies, update the `instance_types` comment in `cluster/main.tf` with the new type and why it was chosen.
 
 ## If something goes wrong
 

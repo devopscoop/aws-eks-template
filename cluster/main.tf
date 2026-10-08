@@ -52,14 +52,37 @@ locals {
   vpc_cidr = var.vpc_cidr
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
-  # The zones blue gets a node group in — one each, sized for a three-instance
-  # CNPG cluster, which is what the databases pinned to blue actually need. It
-  # is deliberately its own slice rather than local.azs: blue's node count is a
-  # property of the database topology, not of how wide the VPC happens to be,
-  # and since the split to per-AZ groups the two would otherwise be the same
-  # number. Widening local.azs for subnet spread would then quietly grow blue
-  # too, which is not a decision that should ride along with a networking one.
-  blue_azs = slice(local.azs, 0, 3)
+  # The zones that get an EKS managed node group — one each, sized for a
+  # three-instance CNPG cluster, which is what the databases pinned to the
+  # node groups actually need. It is deliberately its own slice rather than
+  # local.azs: the node groups' node count is a property of the database
+  # topology, not of how wide the VPC happens to be, and since the split to
+  # per-AZ groups the two would otherwise be the same number. Widening
+  # local.azs for subnet spread would then quietly grow the node groups too,
+  # which is not a decision that should ride along with a networking one.
+  availability_zones = slice(local.azs, 0, 3)
+
+  # The node group generations, keyed by generation number, each with the
+  # instance type its nodes run. Generation N's groups are named
+  # ng-<zone>-<N>: ng-a-1, ng-b-1, ng-c-1. One generation is the normal state.
+  # Changing instance_types REPLACES a managed node group, and deleting a
+  # group terminates its node a few minutes later regardless of
+  # PodDisruptionBudgets, so the type is never changed in place: add the next
+  # generation here (the number only goes up and is never reused), move the
+  # databases onto its nodes by hand, then delete the old entry. The full
+  # procedure is docs/changing-instance-types.md. A group's name comes from
+  # its key, so renumbering a generation would replace its groups too.
+  node_group_generations = {
+    1 = { instance_types = ["t3a.large"] }
+  }
+
+  # One node group per generation per zone. Each entry carries the index of
+  # its zone so the group below can pin itself to that zone's private subnet.
+  node_groups = merge([
+    for generation, group in local.node_group_generations : {
+      for i, az in local.availability_zones : "ng-${trimprefix(az, local.region)}-${generation}" => merge(group, { az_index = i })
+    }
+  ]...)
 
   tags = {
     GitRepo = var.tags_git_repo
@@ -221,13 +244,13 @@ module "eks" {
   # group still leaves room for the replacement node, because the update
   # workflow raises the ASG's own maximum and desired size for its duration.
   eks_managed_node_groups = {
-    for i, az in local.blue_azs : "blue-${trimprefix(az, local.region)}" => {
+    for key, group in local.node_groups : key => {
 
       # Pin this group to one zone. module.vpc.private_subnets is built from
       # local.azs in order (see the vpc module below), the same pairing the EFS
-      # mount targets rely on, and local.blue_azs is a prefix of local.azs so
-      # the indexes line up.
-      subnet_ids = [module.vpc.private_subnets[i]]
+      # mount targets rely on, and local.availability_zones is a prefix of
+      # local.azs so the indexes line up.
+      subnet_ids = [module.vpc.private_subnets[group.az_index]]
 
       # A custom launch template is required to configure the root volume via
       # block_device_mappings (KMS-encrypted, below). This means
@@ -263,7 +286,8 @@ module "eks" {
 
       # instance_types = ["t4g.large"]
       # ami_type       = "AL2023_ARM_64_STANDARD"
-      instance_types = ["t3a.large"]
+      # The type lives in local.node_group_generations (top of this file).
+      instance_types = group.instance_types
 
       # Pin the AMI rather than letting the module default it to "latest
       # release for this cluster version", which is what it does when
@@ -291,7 +315,8 @@ module "eks" {
       # https://github.com/bryantbiggs/eks-desired-size-hack
       desired_size = 1
 
-      # Blue is reserved for workloads that must not ride Karpenter capacity:
+      # The EKS managed node groups are reserved for workloads that must not
+      # ride Karpenter capacity:
       # CNPG database instances (consolidation and drift drains force a
       # switchover whenever the bin-packer rearranges nodes) and the
       # controllers that bootstrap scheduling itself. karpenter and coredns
@@ -302,7 +327,8 @@ module "eks" {
       # restart: EKS applies taint updates to existing group nodes in place
       # (no node rotation), and a NO_SCHEDULE taint never evicts running
       # pods. DaemonSets need the toleration too — one that lacks it keeps
-      # its running pods but stops scheduling onto REPLACEMENT blue nodes.
+      # its running pods but stops scheduling onto REPLACEMENT nodes in the
+      # EKS managed node groups.
       taints = {
         critical_addons_only = {
           key    = "CriticalAddonsOnly"
