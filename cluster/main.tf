@@ -115,12 +115,14 @@ module "eks" {
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
 
-  # Every control-plane log type, audit included (SOC 2 CC7.2, ISO 27001
-  # A.8.15). The module default omits controllerManager and scheduler.
+  # Every control-plane log type, audit included; the module default omits
+  # controllerManager and scheduler. Supports SOC 2 CC7.2 (System Monitoring)
+  # and ISO/IEC 27001:2022 Annex A 8.15 (Logging).
   enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
-  # A year of control-plane logs covers a 12-month SOC 2 Type II period
-  # (module default: 90 days).
+  # A year of control-plane logs (module default: 90 days) covers a 12-month
+  # SOC 2 Type II observation period. Supports SOC 2 CC7.2 (System Monitoring)
+  # and ISO/IEC 27001:2022 Annex A 8.15 (Logging).
   cloudwatch_log_group_retention_in_days = 365
 
   # Private endpoint for defense in depth: reaching the API needs in-VPC access
@@ -247,7 +249,8 @@ module "vpc" {
   single_nat_gateway = true
 
   # All VPC traffic to the S3 bucket in flow-logs.tf, cheaper than CloudWatch
-  # Logs (SOC 2 CC7.2, ISO 27001 A.8.15/A.8.16).
+  # Logs. Supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022
+  # Annex A 8.15 (Logging) / 8.16 (Monitoring activities).
   enable_flow_log                      = true
   flow_log_destination_type            = "s3"
   flow_log_destination_arn             = aws_s3_bucket.flow_logs.arn
