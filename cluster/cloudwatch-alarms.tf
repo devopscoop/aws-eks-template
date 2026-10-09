@@ -2,6 +2,8 @@
 # EC2 CPU alarms: one per node group ASG; Maximum fires when any node runs hot.
 ################################################################################
 
+# Supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.16
+# (Monitoring activities).
 locals {
   # Alert when any node in the group sustains this CPU percentage or higher
   # for node_cpu_alarm_minutes.
@@ -40,6 +42,8 @@ resource "aws_cloudwatch_metric_alarm" "node_cpu" {
 # SQS queue age alarm on Karpenter's interruption queue (Vanta's SQS check).
 ################################################################################
 
+# Supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.16
+# (Monitoring activities).
 locals {
   # Karpenter's queue keeps messages for 300 s, so this must stay well below
   # that. A message this old means interruption handling is down.
@@ -75,6 +79,8 @@ resource "aws_cloudwatch_metric_alarm" "karpenter_interruption_queue_age" {
 # NLB target-group health alarms, found through the LB controller's tags.
 ################################################################################
 
+# Supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.16
+# (Monitoring activities).
 locals {
   # Alert when a target group has had an unhealthy target (or no healthy
   # target) for this many consecutive minutes.
