@@ -39,7 +39,8 @@ locals {
   # databases. A database that grows genuinely different needs graduates out
   # of this map into its own file.
   cnpg_databases = {
-    goalert = "goalert-db"
+    goalert    = "goalert-db"
+    woodpecker = "woodpecker-db"
   }
 
   # for_each source for everything that only exists when replication is on.
