@@ -25,7 +25,7 @@ Only AWS infrastructure lives here. Everything that runs *inside* Kubernetes (He
 
 `module.eks` sets `endpoint_public_access = false` (`main.tf`). CI runs outside the VPC and therefore cannot reach the Kubernetes API. Consequences:
 
-- **Never add a `kubernetes`, `helm`, or `kubectl` provider to `cluster/`.** It may work from a laptop and will fail in CI. This constraint caused a major refactor already; the long comment on that setting explains it.
+- **Never add a `kubernetes`, `helm`, or `kubectl` provider to `cluster/`.** It may work from a laptop and will fail in CI. This constraint caused a major refactor already.
 - The pattern for any in-cluster workload that needs AWS permissions is: create the IRSA role here, `output` its ARN, then paste that ARN into the matching `eks.amazonaws.com/role-arn` ServiceAccount annotation in fluxcd-template. See `cert-manager.tf`, `external-dns.tf`, `aws-load-balancer-controller.tf`, `image-reflector-controller.tf`, and the IRSA half of `tempo.tf` — they are all the same 20-line shape.
 - Outputs are this repo's interface with fluxcd-template (`efs_id`, `tempo_bucket_name`, the `*_role_arn`s). Every one of them has a `description` naming the file it gets pasted into; keep that true when adding outputs.
 
@@ -84,7 +84,7 @@ There is no test suite. `fmt` / `validate` / `plan` are the entire verification 
 
 ## Conventions
 
-- Comments explain *why*, at length, and usually link the GitHub issue or AWS doc that forced the decision. Match that density: a surprising line should carry its reason.
+- Comments are concise: at most three lines, explaining *why* a line exists, not its history. Link the GitHub issue or AWS doc that forced a decision rather than retelling it; longer explanations belong in `docs/` or the PR description. Compliance citations count as the *why*: keep them, written out in full (see below).
 - Compliance is a first-class justification. Logging and retention decisions cite SOC 2 (CC7.2) and ISO/IEC 27001:2022 Annex A 8.15/8.16, and 365 days is the house retention standard (EKS control-plane logs, VPC flow logs, Route 53 query logs) because it covers a 12-month SOC 2 Type II observation period.
 - To take a resource out of scope for Vanta's automated tests, tag it `VantaNoAlert = "<reason>"` (see `flow-logs.tf`). It disables *every* Vanta test for that resource, not just the one that flagged it.
 - Module and provider versions are pinned exactly (`version = "21.24.0"`, not `~>`). Dependabot bumps them weekly.

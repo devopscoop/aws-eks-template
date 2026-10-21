@@ -9,12 +9,8 @@ provider "aws" {
   }
 }
 
-# Second region, for cross-region S3 replication (replica_region in
-# terraform.tfvars). Currently only the CNPG database backup buckets use it
-# (cnpg-backups.tf, when cnpg_backup_replication is on); it lives here
-# rather than with its first consumer so future replicated buckets can share
-# it. Provider blocks can't be conditional, so it exists (unused) even when
-# nothing replicates — harmless.
+# Second region for cross-region S3 replication (replica_region), used by the
+# backup buckets. Provider blocks can't be conditional, so it always exists.
 provider "aws" {
   alias  = "replica"
   region = var.replica_region
@@ -26,13 +22,9 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-# Fixing "Error: creating KMS Key: operation error KMS: CreateKey, https response error StatusCode: 400, RequestID: 0690d6a8-4211-4a06-a2ad-febc524ae3f1, MalformedPolicyDocumentException: Policy contains a statement with one or more invalid principals."
-# Basically, KMS keys can't be created by an STS assumed Role. We need to get the ARN for the underlying role or user.
-# This data source provides information on the IAM source role of an STS assumed role
-# For non-role ARNs, this data source simply passes the ARN through issuer ARN
-# This is needed because KMS keys need to be
-# Ref https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_session_context
-# Ref https://github.com/terraform-aws-modules/terraform-aws-eks/issues/2327#issuecomment-1355581682
+# KMS key policies can't name an STS assumed-role session, so resolve the
+# underlying IAM role (non-role ARNs pass through). See
+# https://github.com/terraform-aws-modules/terraform-aws-eks/issues/2327#issuecomment-1355581682
 data "aws_iam_session_context" "current" {
   arn = data.aws_caller_identity.current.arn
 }
@@ -52,14 +44,24 @@ locals {
   vpc_cidr = var.vpc_cidr
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 
-  # The zones blue gets a node group in — one each, sized for a three-instance
-  # CNPG cluster, which is what the databases pinned to blue actually need. It
-  # is deliberately its own slice rather than local.azs: blue's node count is a
-  # property of the database topology, not of how wide the VPC happens to be,
-  # and since the split to per-AZ groups the two would otherwise be the same
-  # number. Widening local.azs for subnet spread would then quietly grow blue
-  # too, which is not a decision that should ride along with a networking one.
-  blue_azs = slice(local.azs, 0, 3)
+  # Zones that get a node group, one each. Separate from local.azs so widening
+  # the VPC doesn't add node groups.
+  availability_zones = slice(local.azs, 0, 3)
+
+  # Node group generations by number; generation N's groups are ng-<zone>-<N>.
+  # Changing instance_types replaces a group, so add a generation, move the
+  # workloads, then delete the old one: docs/changing-instance-types.md.
+  node_group_generations = {
+    1 = { instance_types = ["t3a.large"] }
+  }
+
+  # One node group per generation per zone. Each entry carries the index of
+  # its zone so the group below can pin itself to that zone's private subnet.
+  node_groups = merge([
+    for generation, group in local.node_group_generations : {
+      for i, az in local.availability_zones : "ng-${trimprefix(az, local.region)}-${generation}" => merge(group, { az_index = i })
+    }
+  ]...)
 
   tags = {
     GitRepo = var.tags_git_repo
@@ -86,9 +88,7 @@ module "eks" {
     coredns = {
       addon_version = var.eks_addon_version_coredns
     }
-    # Publishes granular node health NodeConditions (kernel, networking,
-    # storage faults) that node auto repair (node_repair_config on the node
-    # group below) consumes to decide when to replace a node.
+    # Node health conditions that node_repair_config (below) acts on:
     # https://docs.aws.amazon.com/eks/latest/userguide/node-health.html
     eks-node-monitoring-agent = {
       addon_version = var.eks_addon_version_eks-node-monitoring-agent
@@ -115,64 +115,39 @@ module "eks" {
   ip_family                  = "ipv6"
   create_cni_ipv6_iam_policy = true
 
-  # Emit all EKS control-plane log types to CloudWatch. The module default omits
-  # controllerManager and scheduler; enabling every type (notably the audit log)
-  # supports SOC 2 (CC7.2, System Monitoring) and ISO/IEC 27001:2022 Annex A 8.15
-  # (Logging).
+  # Every control-plane log type, audit included; the module default omits
+  # controllerManager and scheduler. Supports SOC 2 CC7.2 (System Monitoring)
+  # and ISO/IEC 27001:2022 Annex A 8.15 (Logging).
   enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
-  # Retain the cluster's CloudWatch control-plane logs for a full year (module
-  # default is 90 days). This supports SOC 2 audit logging under Trust Services
-  # Criteria CC7.2 (System Monitoring) and ISO/IEC 27001:2022 Annex A 8.15
-  # (Logging); 365 days covers the typical 12-month SOC 2 Type II observation
-  # period.
+  # A year of control-plane logs (module default: 90 days) covers a 12-month
+  # SOC 2 Type II observation period. Supports SOC 2 CC7.2 (System Monitoring)
+  # and ISO/IEC 27001:2022 Annex A 8.15 (Logging).
   cloudwatch_log_group_retention_in_days = 365
 
-  # For defense in depth, set this to false. A private endpoint requires a VPN,
-  # bastion host, or some other way into the AWS VPC.
-  #
-  # This one setting was the cause of a fairly major refactor. The "kubernetes"
-  # and "helm" providers run from GitHub Actions (outside the cluster), so a
-  # private endpoint broke everything that talked to the cluster API —
-  # external-dns, cert-manager, the AWS Load Balancer Controller, the
-  # ClusterIssuer, and the storage-class tweaks. Those have all been moved into
-  # fluxcd-template, where Flux reconciles them from inside the cluster, and
-  # only the AWS IAM/IRSA roles remain here. A private endpoint is therefore
-  # viable now for anyone with in-VPC access.
-  #
-  # TODO: This is the reason you can't connect to your cluster. Setup AWS VPN
-  # Client. Security is more important than convenience.
+  # Private endpoint for defense in depth: reaching the API needs in-VPC access
+  # (VPN or bastion). In-cluster config lives in fluxcd-template, reconciled by
+  # Flux, so nothing here needs a public endpoint.
   endpoint_public_access = false
 
-  # Grant AWS SSO roles appropriate access to the cluster. The mapping of
-  # AWSReservedSSO_* permission sets to cluster-access-policies is discovered
-  # dynamically in data.tf (local.sso_access_entries); add new permission sets
-  # there rather than hardcoding role ARNs here.
+  # SSO permission sets map to access policies in data.tf
+  # (local.sso_access_entries); add new ones there, not here.
   access_entries = local.sso_access_entries
 
   # Give the Terraform identity admin access to the cluster
   # which will allow resources to be deployed into the cluster
   enable_cluster_creator_admin_permissions = true
 
-  # Karpenter's EC2NodeClass discovers which security group to attach to the
-  # nodes it launches by this tag (spec.securityGroupSelectorTerms in
-  # fluxcd-template's apps/karpenter-custom-resources). Tag only the node
-  # security group — tagging more than one SG with the same discovery key
-  # makes Karpenter attach all of them.
+  # Karpenter's EC2NodeClass picks its security group by this tag. Tag only
+  # the node SG: Karpenter attaches every SG that carries the key.
   node_security_group_tags = {
     "karpenter.sh/discovery" = local.name
   }
 
   node_security_group_additional_rules = {
-    # `kubectl cnpg status` fetches each instance's live status through the API
-    # server's pods/proxy subresource, which makes the API server dial the pod
-    # IP directly on the CloudNativePG instance manager's status port (8000,
-    # not configurable). The module's default node security group only allows
-    # control-plane ingress on 443, 10250, and the standard webhook ports, and
-    # with the VPC CNI the pod IPs live on node ENIs behind this security
-    # group — so without this rule the proxy dial is silently dropped and the
-    # plugin (which sets no client timeout) hangs forever. See
-    # https://github.com/terraform-aws-modules/terraform-aws-eks/blob/master/docs/network_connectivity.md
+    # `kubectl cnpg status` makes the API server dial each instance's status
+    # port (8000) through pods/proxy; the default node SG drops that, and the
+    # plugin hangs.
     ingress_cluster_to_cnpg_status = {
       description                   = "API server to CloudNativePG instance manager (kubectl cnpg status uses pods/proxy on port 8000)"
       protocol                      = "tcp"
@@ -186,53 +161,18 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  # One managed node group per availability zone, each pinned to that zone's
-  # private subnet, rather than a single three-node group spanning all three.
-  #
-  # EKS marks EVERY node in a group unschedulable during the scale-up phase of
-  # a version update — before any draining starts, and independently of
-  # maxUnavailable, which caps only how many nodes drain in parallel
-  # (https://docs.aws.amazon.com/eks/latest/userguide/managed-node-update-behavior.html).
-  # With a single group that cordons all three nodes at once, and CloudNativePG
-  # then cannot move a primary off the node being drained: its switchover
-  # candidate loop skips every replica whose own node is unschedulable, logs
-  # "no valid candidates", and does nothing (internal/controller/replicas.go).
-  # The primary PDB allows zero disruptions, so that node's drain retries for
-  # 15 minutes and the apply dies with PodEvictionFailure. Seen twice on a real
-  # cluster; it does not resolve on its own — it needs `kubectl cnpg promote`
-  # by hand, which is not something an unattended apply can do.
-  #
-  # Per-AZ groups break the deadlock because each group runs its own update
-  # instead of queueing behind one blocked node. The two groups whose node
-  # holds only a REPLICA drain right away (the replica PDB allows one
-  # disruption at a time), that replica reschedules onto its zone's fresh
-  # node, and the moment it is Ready on a schedulable node CloudNativePG has
-  # the candidate it was missing and switches over by itself — while the
-  # primary's group is still retrying, so that drain then succeeds too. This
-  # holds whether OpenTofu issues the three updates concurrently or one after
-  # another: serialized, the replica nodes are never cordoned at the same time
-  # and the switchover is immediate.
-  #
-  # Total capacity is unchanged — three nodes, one per AZ, which is what the
-  # single group already converged on through ASG availability-zone
-  # rebalancing; making it explicit is what buys the independent lifecycles. A
-  # CNPG instance is pinned to one AZ by its EBS volume regardless, so it has
-  # exactly one node it can run on either way. A fixed min/max/desired of 1 per
-  # group still leaves room for the replacement node, because the update
-  # workflow raises the ASG's own maximum and desired size for its duration.
+  # One group per AZ, so each version update drains its own zone and a drain
+  # blocked in one zone doesn't hold up the others. In-place updates only; for
+  # replacements see docs/changing-instance-types.md.
   eks_managed_node_groups = {
-    for i, az in local.blue_azs : "blue-${trimprefix(az, local.region)}" => {
+    for key, group in local.node_groups : key => {
 
-      # Pin this group to one zone. module.vpc.private_subnets is built from
-      # local.azs in order (see the vpc module below), the same pairing the EFS
-      # mount targets rely on, and local.blue_azs is a prefix of local.azs so
-      # the indexes line up.
-      subnet_ids = [module.vpc.private_subnets[i]]
+      # Pin to this zone's private subnet. local.availability_zones is a prefix
+      # of local.azs, so the indexes match module.vpc.private_subnets.
+      subnet_ids = [module.vpc.private_subnets[group.az_index]]
 
-      # A custom launch template is required to configure the root volume via
-      # block_device_mappings (KMS-encrypted, below). This means
-      # `disk_size`/`remote_access` can no longer be set directly — the disk is
-      # configured via block_device_mappings below instead.
+      # Required for the KMS-encrypted root volume in block_device_mappings,
+      # which replaces disk_size.
       use_custom_launch_template = true
 
       # Replaces the former `disk_size = 50`. Encrypt the root volume with the
@@ -251,36 +191,20 @@ module "eks" {
         }
       }
 
-      # Let EKS replace nodes that stay unhealthy (Ready stuck False/Unknown,
-      # or faults reported by the eks-node-monitoring-agent addon above). The
-      # ASG alone cannot catch this: a kubelet can crash or starve — e.g. a
-      # burstable instance out of CPU credits — while EC2 status checks keep
-      # passing, so the instance sits NotReady until someone terminates it by
-      # hand.
+      # Replace nodes that stay NotReady or report faults, which EC2 status
+      # checks alone miss (e.g. a starved kubelet).
       node_repair_config = {
         enabled = true
       }
 
       # instance_types = ["t4g.large"]
       # ami_type       = "AL2023_ARM_64_STANDARD"
-      instance_types = ["t3a.large"]
+      # The type lives in local.node_group_generations (top of this file).
+      instance_types = group.instance_types
 
-      # Pin the AMI rather than letting the module default it to "latest
-      # release for this cluster version", which is what it does when
-      # ami_release_version is null. Unpinned, a new EKS AMI release becomes a
-      # node rotation on whatever PR merges next: the plan that set off the
-      # PodEvictionFailure incident behind the per-AZ split was a single line,
-      #
-      #   ~ release_version = "1.35.7-20260903" -> "1.35.8-20260917"
-      #
-      # on a PR that had nothing to do with node groups. Rotating the nodes
-      # the databases sit on deserves to be its own reviewable change, with a
-      # plan that says so.
-      #
-      # ./update_node_ami.sh bumps this the way update_eks_addons.sh bumps the
-      # addon pins. A release version belongs to one Kubernetes minor, so bump
-      # it in the same commit as cluster_version.
-      # The module ignores the pin unless use_latest_ami_release_version is off.
+      # Pinned so a new EKS AMI isn't a node rotation on an unrelated PR. Bump
+      # with ./update_node_ami.sh, alongside cluster_version. Only honoured
+      # with use_latest_ami_release_version = false.
       ami_release_version            = var.node_ami_release_version
       use_latest_ami_release_version = false
 
@@ -291,18 +215,9 @@ module "eks" {
       # https://github.com/bryantbiggs/eks-desired-size-hack
       desired_size = 1
 
-      # Blue is reserved for workloads that must not ride Karpenter capacity:
-      # CNPG database instances (consolidation and drift drains force a
-      # switchover whenever the bin-packer rearranges nodes) and the
-      # controllers that bootstrap scheduling itself. karpenter and coredns
-      # tolerate this taint out of the box; the cnpg-database template's
-      # karpenter marker block (fluxcd repo, apps/templates/cnpg-database)
-      # adds the matching toleration alongside the node affinity that pins
-      # databases here. Everything else drifts to Karpenter nodes as pods
-      # restart: EKS applies taint updates to existing group nodes in place
-      # (no node rotation), and a NO_SCHEDULE taint never evicts running
-      # pods. DaemonSets need the toleration too — one that lacks it keeps
-      # its running pods but stops scheduling onto REPLACEMENT blue nodes.
+      # Reserved for workloads that must not ride Karpenter capacity, such as
+      # the controllers that bootstrap scheduling. Pods and DaemonSets that run
+      # here need a CriticalAddonsOnly toleration (karpenter and coredns do).
       taints = {
         critical_addons_only = {
           key    = "CriticalAddonsOnly"
@@ -333,14 +248,9 @@ module "vpc" {
   enable_nat_gateway = true
   single_nat_gateway = true
 
-  # Capture VPC Flow Logs for all traffic (accepted and rejected) to S3. S3 is
-  # markedly cheaper than CloudWatch Logs for high-volume flow data. The bucket,
-  # its log-delivery policy, and retention lifecycle are defined in
-  # flow-logs.tf; the module only creates the aws_flow_log resource pointing at
-  # that bucket, so the CloudWatch IAM role and log group are disabled here.
-  # Network flow logging supports SOC 2 (CC7.2, System Monitoring) and ISO/IEC
-  # 27001:2022 Annex A 8.15 (Logging) / 8.16 (Monitoring activities), and aids
-  # incident investigation.
+  # All VPC traffic to the S3 bucket in flow-logs.tf, cheaper than CloudWatch
+  # Logs. Supports SOC 2 CC7.2 (System Monitoring) and ISO/IEC 27001:2022
+  # Annex A 8.15 (Logging) / 8.16 (Monitoring activities).
   enable_flow_log                      = true
   flow_log_destination_type            = "s3"
   flow_log_destination_arn             = aws_s3_bucket.flow_logs.arn
@@ -366,10 +276,8 @@ module "vpc" {
 
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
-    # Karpenter's EC2NodeClass discovers which subnets to launch nodes into by
-    # this tag (spec.subnetSelectorTerms in fluxcd-template's
-    # apps/karpenter-custom-resources). Private subnets only — nodes never
-    # belong in the public ones.
+    # Karpenter's EC2NodeClass picks subnets by this tag; private subnets
+    # only.
     "karpenter.sh/discovery" = local.name
   }
 }
