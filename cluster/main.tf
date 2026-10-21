@@ -189,6 +189,19 @@ module "eks" {
   # One managed node group per availability zone, each pinned to that zone's
   # private subnet, rather than a single three-node group spanning all three.
   #
+  # Everything below is about IN-PLACE updates of these groups: an AMI release
+  # bump (ami_release_version) or a Kubernetes version bump (cluster_version),
+  # which EKS rolls out by bringing a fresh node into the same group, draining
+  # the old one under its PodDisruptionBudgets, and retiring it. Both have
+  # been exercised and behave as described. It does NOT apply to anything
+  # that REPLACES the groups — above all an instance_types change, which EKS
+  # can't apply in place and which therefore becomes "create three empty
+  # groups, delete three live ones" in one apply. Deleting a group terminates
+  # its node a few minutes later whether or not the database has moved off,
+  # PDBs notwithstanding, and nothing puts a database on the new nodes first.
+  # That path is a hand-driven generation rotation: see the instance_types
+  # comment below and docs/changing-instance-types.md.
+  #
   # EKS marks EVERY node in a group unschedulable during the scale-up phase of
   # a version update — before any draining starts, and independently of
   # maxUnavailable, which caps only how many nodes drain in parallel
@@ -263,6 +276,27 @@ module "eks" {
 
       # instance_types = ["t4g.large"]
       # ami_type       = "AL2023_ARM_64_STANDARD"
+      #
+      # NEVER change instance_types in place. EKS can't change a managed node
+      # group's instance types, so the module REPLACES the group
+      # (create-before-destroy): three empty groups come up, then the three
+      # live ones are deleted, all in the same apply. Deleting a managed node
+      # group cordons its node and terminates it about five minutes later
+      # whether or not anything has moved off — PodDisruptionBudgets don't
+      # hold it back — and the per-AZ reasoning above (a replica reschedules
+      # onto the fresh node, then CNPG switches over by itself) only holds for
+      # in-place updates. An instance_types change applied this way cordons
+      # every database node within seconds of each other and terminates them
+      # all a few minutes later, which has taken a production database down.
+      #
+      # To change the type: add the next generation of groups with the new
+      # type (nothing deleted), move each database instance onto its zone's
+      # new node by hand, then delete the old generation once it is empty.
+      # docs/changing-instance-types.md is the procedure. The plan for each of
+      # its two PRs must be all `+` or all `-` on aws_eks_node_group, never
+      # `-/+`; the workflow's node group guard refuses to apply a removal that
+      # still has a database on it. The same goes for anything else whose plan
+      # shows these groups as replaced (a subnet change, for example).
       instance_types = ["t3a.large"]
 
       # Pin the AMI rather than letting the module default it to "latest
