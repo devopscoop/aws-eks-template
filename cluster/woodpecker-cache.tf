@@ -11,9 +11,11 @@ resource "aws_s3_bucket" "woodpecker_cache" {
   bucket = local.woodpecker_cache_bucket
 
   # Not replicated: a lost cache costs one cold build. VantaNoAlert takes the
-  # bucket out of scope for every Vanta test, not just replication.
+  # bucket out of scope for every Vanta test, not just replication. S3 tag
+  # values allow only letters, numbers, spaces and + - = . _ : / @ (no
+  # commas), and a bad one fails CreateBucket at apply, never at plan.
   tags = {
-    VantaNoAlert = "Woodpecker CI build cache - regenerable by the next pipeline run, does not need cross-region replication"
+    VantaNoAlert = "Woodpecker CI build cache - regenerable by the next pipeline run and does not need cross-region replication"
   }
 }
 
