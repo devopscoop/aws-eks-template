@@ -71,6 +71,10 @@ variable "enable_woodpecker_cache" {
   type        = bool
   description = "Creates the Woodpecker CI pipeline cache S3 bucket and the woodpecker-cache IRSA role (woodpecker-cache.tf). Only needed when apps/woodpecker in fluxcd-template runs cache plugin steps; with it off, the woodpecker_cache_* outputs are null."
 }
+variable "enable_spegel" {
+  type        = bool
+  description = "Configures the managed node groups' containerd for Spegel (apps/spegel in fluxcd-template): keep unpacked image layers and read registry mirror config from /etc/containerd/certs.d alone (cloudinit_pre_nodeadm in main.tf). Required before enabling apps/spegel, whose DaemonSet runs on these nodes too. Changing it replaces every managed node."
+}
 variable "create_route53_zone" {
   type    = bool
   default = true
