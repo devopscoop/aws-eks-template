@@ -3,9 +3,10 @@
 #
 # One S3 bucket + IRSA role per CNPG Cluster that archives WAL files and base
 # backups through the Barman Cloud Plugin (apps/cnpg-barman-plugin in
-# fluxcd-template). Barman owns object retention — each database's
+# fluxcd-template). Barman owns day-to-day retention — each database's
 # ObjectStore resource sets a recovery window and deletes obsolete backups
-# itself — so there is no object-expiration lifecycle rule here.
+# itself. The lifecycle configuration adds a much longer object expiration
+# underneath that as a hard ceiling (see cnpg_backup_expiration_days).
 #
 # Access is granted via IRSA: the CNPG instance pods run as a ServiceAccount
 # the operator names after the Cluster, which assumes the matching role
@@ -44,6 +45,40 @@ locals {
 
   # for_each source for everything that only exists when replication is on.
   replicated_cnpg_databases = var.cnpg_backup_replication ? local.cnpg_databases : {}
+
+  # Hard ceiling on how long any object lives in a backup bucket or its
+  # replica. A backup is a full copy of the database, user data included, so
+  # it needs an enforced deletion date like the database itself. Vanta's S3
+  # lifecycle test fails any bucket it marks as holding user data unless an
+  # enabled rule sets an expiration; barman's recovery window, configured
+  # in a different repo, is invisible to it. 365 days is the house retention
+  # standard (it covers the 12-month SOC 2 Type II observation period).
+  #
+  # The ceiling sits far above barman's recovery window (the ObjectStore's
+  # retentionPolicy, 14-30 days), so in normal operation it never touches
+  # anything barman still manages. What it does reap is what barman leaves
+  # behind for good:
+  #   - Timeline .history files, which barman-cloud-backup-delete skips on
+  #     purpose. Losing a year-old one is harmless: recovery only reads the
+  #     target timeline's file (it lists every ancestor), and PostgreSQL
+  #     treats a missing one as "no parent timelines". If the current
+  #     timeline is a year old, every backup in the recovery window was
+  #     taken on it, so it needs no parents.
+  #   - The old serverName prefix a restore or major-version upgrade leaves
+  #     behind (the fluxcd-template runbooks have you delete it by hand).
+  #   - Backups pinned with barman-cloud-backup-keep: a year is now the most
+  #     any backup can be kept. Copy one elsewhere if it must outlive that.
+  #
+  # The one way this can delete something barman still needs: if base
+  # backups stop succeeding for a full year, the newest one ages out and the
+  # WAL after it has nothing to replay onto. A backup outage that long has
+  # to be caught by alerting long before; barman would have kept that last
+  # backup forever.
+  #
+  # On a versioned bucket (replication on) expiry only adds a delete marker;
+  # the cleanup rule's 7-day noncurrent expiration then removes the data, so
+  # nothing survives past day ~372.
+  cnpg_backup_expiration_days = 365
 }
 
 resource "aws_s3_bucket" "cnpg_db_backups" {
@@ -152,6 +187,24 @@ resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups" {
 
     expiration {
       expired_object_delete_marker = true
+    }
+  }
+
+  # A separate rule because S3 won't accept days and
+  # expired_object_delete_marker in the same rule, and dropping the marker
+  # cleanup in favor of days would delay it: with days set, S3 only removes
+  # expired delete markers once they are that old, so barman's daily
+  # deletions would leave a year of markers behind. See "Removing expired
+  # object delete markers" in
+  # https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configuration-examples.html
+  rule {
+    id     = "expire-backups"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = local.cnpg_backup_expiration_days
     }
   }
 }
@@ -320,7 +373,10 @@ resource "aws_s3_bucket_policy" "cnpg_db_backups_replica" {
 
 # Delete-marker replication (below) mirrors barman's retention deletions
 # here, so the replica needs the same cleanup rules or its noncurrent
-# versions grow without bound.
+# versions grow without bound. It also needs its own copy of the expiration
+# rule: S3 never replicates the delete markers lifecycle expiration creates,
+# so without it every object the source expires would live on here forever.
+# https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-what-is-isnot-replicated.html
 resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups_replica" {
   for_each = local.replicated_cnpg_databases
 
@@ -344,6 +400,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups_replica" {
 
     expiration {
       expired_object_delete_marker = true
+    }
+  }
+
+  rule {
+    id     = "expire-backups"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = local.cnpg_backup_expiration_days
     }
   }
 }
