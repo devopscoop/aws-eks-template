@@ -5,7 +5,7 @@
 # backups through the Barman Cloud Plugin (apps/cnpg-barman-plugin in
 # fluxcd-template). Barman owns object retention — each database's
 # ObjectStore resource sets a recovery window and deletes obsolete backups
-# itself — so there is no object-expiration lifecycle rule here.
+# itself — so the lifecycle expiration below is only a backstop.
 #
 # Access is granted via IRSA: the CNPG instance pods run as a ServiceAccount
 # the operator names after the Cluster, which assumes the matching role
@@ -44,6 +44,11 @@ locals {
 
   # for_each source for everything that only exists when replication is on.
   replicated_cnpg_databases = var.cnpg_backup_replication ? local.cnpg_databases : {}
+
+  # Vanta fails user-data buckets with no expiration. Far above barman's
+  # 14-30d window, this only reaps what barman never deletes (.history files,
+  # old serverName prefixes), or the last backup after a year of failures.
+  cnpg_backup_expiration_days = 365
 }
 
 resource "aws_s3_bucket" "cnpg_db_backups" {
@@ -152,6 +157,20 @@ resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups" {
 
     expiration {
       expired_object_delete_marker = true
+    }
+  }
+
+  # Separate rule: S3 rejects days + expired_object_delete_marker in one rule,
+  # and with days alone it keeps expired delete markers until they're 365d old.
+  # https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-configuration-examples.html
+  rule {
+    id     = "expire-backups"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = local.cnpg_backup_expiration_days
     }
   }
 }
@@ -344,6 +363,20 @@ resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups_replica" {
 
     expiration {
       expired_object_delete_marker = true
+    }
+  }
+
+  # S3 doesn't replicate lifecycle expirations, so without this the replica
+  # keeps everything the source expires.
+  # https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-what-is-isnot-replicated.html
+  rule {
+    id     = "expire-backups"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = local.cnpg_backup_expiration_days
     }
   }
 }
