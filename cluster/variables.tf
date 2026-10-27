@@ -73,7 +73,7 @@ variable "enable_woodpecker_cache" {
 }
 variable "enable_spegel" {
   type        = bool
-  description = "Configures the managed node groups' containerd for Spegel (apps/spegel in fluxcd-template): keep unpacked image layers and read registry mirror config from /etc/containerd/certs.d alone (cloudinit_pre_nodeadm in main.tf). Changing it replaces every managed node."
+  description = "Configures the managed node groups' containerd for Spegel (apps/spegel in fluxcd-template): keep unpacked image layers and read registry mirror config from /etc/containerd/certs.d alone (cloudinit_pre_nodeadm in main.tf). Required before enabling apps/spegel, whose DaemonSet runs on these nodes too. Changing it replaces every managed node."
 }
 variable "create_route53_zone" {
   type    = bool
