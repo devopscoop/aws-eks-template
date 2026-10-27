@@ -8,12 +8,14 @@ on:
       - main
     paths:
       - .github/workflows/opentofu-aws-eks.yml
+      - .github/scripts/guard-node-group-removal.sh
       - cluster/**
   pull_request:
     branches:
       - main
     paths:
       - .github/workflows/opentofu-aws-eks.yml
+      - .github/scripts/guard-node-group-removal.sh
       - cluster/**
 defaults:
   run:
@@ -81,6 +83,20 @@ jobs:
         run: tofu plan -concise -no-color -input=false -out=plan.file 2>&1 | tee plan-output.txt; exit "${PIPESTATUS[0]}"
         # We need to continue-on-error here so we can print the tofu plan output even on failure.
         continue-on-error: true
+      # Refuse to remove a node group that still has a database on it. An
+      # instance_types change replaces the group, and EKS terminates a deleted
+      # group's nodes a few minutes later regardless of PodDisruptionBudgets,
+      # which can take a database down. The script
+      # looks for PVC-backed EBS volumes still attached to the removed groups'
+      # instances (CI cannot reach the private API endpoint to list pods) and
+      # explains the rest in its header. continue-on-error so the PR comment
+      # below can carry the report; on main, "Check node group guard result"
+      # stops the apply.
+      - id: guard
+        name: Node group guard
+        if: steps.plan.outcome == 'success'
+        run: '"$GITHUB_WORKSPACE/.github/scripts/guard-node-group-removal.sh" plan.file'
+        continue-on-error: true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: github.event_name == 'pull_request'
         with:
@@ -101,6 +117,7 @@ jobs:
           ACTOR: ${{ github.actor }}
           EVENT_NAME: ${{ github.event_name }}
           FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          GUARD_OUTCOME: ${{ steps.guard.outcome }}
           PLAN_OUTCOME: ${{ steps.plan.outcome }}
           TF_WORKING_DIR: cluster
           WORKFLOW: ${{ github.workflow }}
@@ -111,6 +128,18 @@ jobs:
             const path = require('path');
             const wd = path.join(process.env.GITHUB_WORKSPACE, process.env.TF_WORKING_DIR);
             const planOutput = fs.readFileSync(path.join(wd, 'plan-output.txt'), 'utf8');
+            // The node group guard's report. The step is skipped when the plan
+            // failed, and fails (continue-on-error) when a group this plan
+            // removes still has a database on it or the check itself errored.
+            const guardPath = path.join(wd, 'node-group-guard.txt');
+            const guardReport = fs.existsSync(guardPath) ? fs.readFileSync(guardPath, 'utf8').trim() : '';
+            const guardSection = process.env.GUARD_OUTCOME === 'failure'
+              ? [
+                  `#### :no_entry: Node group guard \`failure\``,
+                  'This plan removes a node group that still has a database on it, or the guard could not check. **The apply on main will refuse to run** until the database has been moved (`docs/changing-instance-types.md`).',
+                  `\`\`\`\n${guardReport}\n\`\`\``,
+                ].join('\n\n')
+              : `#### Node group guard \`${process.env.GUARD_OUTCOME}\``;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             // GitHub PR comments are capped at 65536 chars. Leave ~2000 for the surrounding template.
             const PLAN_LIMIT = 63000;
@@ -120,6 +149,7 @@ jobs:
             const output = [
               `#### OpenTofu Format and Style \`${process.env.FMT_OUTCOME}\``,
               `#### OpenTofu Plan \`${process.env.PLAN_OUTCOME}\``,
+              guardSection,
               planSection,
               `*Pusher: @${process.env.ACTOR}, Action: \`${process.env.EVENT_NAME}\`, Working Directory: \`${process.env.TF_WORKING_DIR}\`, Workflow: \`${process.env.WORKFLOW}\`*`,
             ].join('\n\n');
@@ -133,5 +163,14 @@ jobs:
       - name: Check plan result
         if: steps.plan.outcome == 'failure'
         run: exit 1
+      # Fail closed on main: the guard found a database on a node group this
+      # plan would remove, or could not evaluate the plan at all. On a PR the
+      # finding is only reported in the comment above, so a reviewer can still
+      # see the plan.
+      - name: Check node group guard result
+        if: github.ref == 'refs/heads/main' && steps.guard.outcome != 'success'
+        run: |
+          cat node-group-guard.txt 2>/dev/null || true
+          exit 1
       - if: github.ref == 'refs/heads/main'
         run: tofu apply -concise -no-color -input=false plan.file

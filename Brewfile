@@ -14,7 +14,7 @@ brew "aws-sso-cli"
 # Used by update_opentofu.sh and for `tofu init/plan/apply` in bootstrap/ and cluster/.
 brew "tenv"
 
-# jq - JSON parsing in cluster/update_eks_addons.sh
+# jq - JSON parsing in cluster/update_eks_addons.sh and .github/scripts/guard-node-group-removal.sh
 brew "jq"
 
 # kubectl - connecting to the cluster with the kubeconfig from `aws eks update-kubeconfig`
