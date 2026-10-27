@@ -284,6 +284,40 @@ module "eks" {
       ami_release_version            = var.node_ami_release_version
       use_latest_ami_release_version = false
 
+      # Containerd settings for Spegel (apps/spegel in fluxcd-template), the
+      # in-cluster mirror that lets a node pull image layers from its peers
+      # instead of the upstream registry. The AL2023 AMI discards compressed
+      # layers once they're unpacked, so a node would have nothing to serve,
+      # and it reads mirror config from
+      # "/etc/containerd/certs.d:/etc/docker/certs.d", while Spegel rejects
+      # any multi-entry path on containerd 2.4+. fluxcd-template's
+      # EC2NodeClass carries the same NodeConfig, behind its spegel marker
+      # block, for Karpenter's nodes. Keep the two identical.
+      #
+      # EKS appends its own NodeConfig (cluster endpoint, CA, ...) after this
+      # part and nodeadm merges them. Turning enable_spegel on or off changes
+      # the launch template's user data, so the apply replaces every node in
+      # all three groups. The per-AZ groups make that safe for CNPG (see above),
+      # but plan it like an AMI bump. With it off this is null, which the
+      # module treats as no parts: no user data and no plan change.
+      # https://spegel.dev/docs/getting-started/#al2023
+      # https://awslabs.github.io/amazon-eks-ami/nodeadm/doc/examples/#configuring-containerd
+      cloudinit_pre_nodeadm = var.enable_spegel ? [{
+        content_type = "application/node.eks.aws"
+        content      = <<-EOT
+          ---
+          apiVersion: node.eks.aws/v1alpha1
+          kind: NodeConfig
+          spec:
+            containerd:
+              config: |
+                [plugins.'io.containerd.cri.v1.images']
+                discard_unpacked_layers = false
+                [plugins.'io.containerd.cri.v1.images'.registry]
+                config_path = '/etc/containerd/certs.d'
+        EOT
+      }] : null
+
       # One node per zone; three groups make the same three nodes as before.
       min_size = 1
       max_size = 1

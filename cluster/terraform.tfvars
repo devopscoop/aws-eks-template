@@ -24,6 +24,11 @@ eks_addon_version_vpc-cni                   = "v1.23.2-eksbuild.1"
 # comment on ami_release_version in main.tf.
 node_ami_release_version = "1.36.4-20260930"
 
+# Off because only clusters that run Spegel (apps/spegel in fluxcd-template)
+# need it. Turn it on before enabling that app, and expect the apply to replace
+# every managed node: it changes their launch template's user data.
+enable_spegel = false
+
 enable_image_reflector_controller = true
 enable_route53                    = true
 create_route53_zone               = true
