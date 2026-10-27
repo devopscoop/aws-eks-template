@@ -1,6 +1,8 @@
 ################################################################################
 # Woodpecker CI pipeline cache (apps/woodpecker in fluxcd-template). Contents
 # are regenerable by the next run, so stale entries expire instead of piling up.
+# Off by default (enable_woodpecker_cache in terraform.tfvars): only clusters
+# that run Woodpecker need it.
 ################################################################################
 
 locals {
@@ -8,6 +10,8 @@ locals {
 }
 
 resource "aws_s3_bucket" "woodpecker_cache" {
+  count = var.enable_woodpecker_cache ? 1 : 0
+
   bucket = local.woodpecker_cache_bucket
 
   # Not replicated: a lost cache costs one cold build. VantaNoAlert takes the
@@ -20,7 +24,9 @@ resource "aws_s3_bucket" "woodpecker_cache" {
 }
 
 resource "aws_s3_bucket_public_access_block" "woodpecker_cache" {
-  bucket = aws_s3_bucket.woodpecker_cache.id
+  count = var.enable_woodpecker_cache ? 1 : 0
+
+  bucket = aws_s3_bucket.woodpecker_cache[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -30,13 +36,15 @@ resource "aws_s3_bucket_public_access_block" "woodpecker_cache" {
 
 # Defense in depth: the cache plugins already use TLS, so this only blocks misuse.
 data "aws_iam_policy_document" "woodpecker_cache_https_only" {
+  count = var.enable_woodpecker_cache ? 1 : 0
+
   statement {
     sid     = "DenyInsecureTransport"
     effect  = "Deny"
     actions = ["s3:*"]
     resources = [
-      aws_s3_bucket.woodpecker_cache.arn,
-      "${aws_s3_bucket.woodpecker_cache.arn}/*",
+      aws_s3_bucket.woodpecker_cache[0].arn,
+      "${aws_s3_bucket.woodpecker_cache[0].arn}/*",
     ]
 
     principals {
@@ -53,8 +61,10 @@ data "aws_iam_policy_document" "woodpecker_cache_https_only" {
 }
 
 resource "aws_s3_bucket_policy" "woodpecker_cache" {
-  bucket = aws_s3_bucket.woodpecker_cache.id
-  policy = data.aws_iam_policy_document.woodpecker_cache_https_only.json
+  count = var.enable_woodpecker_cache ? 1 : 0
+
+  bucket = aws_s3_bucket.woodpecker_cache[0].id
+  policy = data.aws_iam_policy_document.woodpecker_cache_https_only[0].json
 
   # block_public_policy evaluates policies as they're applied, so it must exist first.
   depends_on = [aws_s3_bucket_public_access_block.woodpecker_cache]
@@ -66,7 +76,9 @@ resource "aws_s3_bucket_policy" "woodpecker_cache" {
 # lose their cache. Never versioned, so no delete-marker cleanup (see
 # cnpg-backups.tf).
 resource "aws_s3_bucket_lifecycle_configuration" "woodpecker_cache" {
-  bucket = aws_s3_bucket.woodpecker_cache.id
+  count = var.enable_woodpecker_cache ? 1 : 0
+
+  bucket = aws_s3_bucket.woodpecker_cache[0].id
 
   rule {
     id     = "expire-stale-caches"
@@ -88,10 +100,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "woodpecker_cache" {
 # Delete is for the plugins' clear action; AbortMultipartUpload for saves that
 # fail mid-upload.
 data "aws_iam_policy_document" "woodpecker_cache_s3" {
+  count = var.enable_woodpecker_cache ? 1 : 0
+
   statement {
     sid       = "ListCacheBucket"
     actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.woodpecker_cache.arn]
+    resources = [aws_s3_bucket.woodpecker_cache[0].arn]
   }
 
   statement {
@@ -102,14 +116,16 @@ data "aws_iam_policy_document" "woodpecker_cache_s3" {
       "s3:GetObject",
       "s3:PutObject",
     ]
-    resources = ["${aws_s3_bucket.woodpecker_cache.arn}/*"]
+    resources = ["${aws_s3_bucket.woodpecker_cache[0].arn}/*"]
   }
 }
 
 resource "aws_iam_policy" "woodpecker_cache_s3" {
+  count = var.enable_woodpecker_cache ? 1 : 0
+
   name        = "${local.name}-woodpecker-cache-s3"
   description = "Read/write access to the Woodpecker CI pipeline cache S3 bucket"
-  policy      = data.aws_iam_policy_document.woodpecker_cache_s3.json
+  policy      = data.aws_iam_policy_document.woodpecker_cache_s3[0].json
 }
 
 # IRSA rather than an access key in a Woodpecker secret. Only works with a
@@ -118,11 +134,13 @@ module "woodpecker_cache_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.8.2"
 
+  count = var.enable_woodpecker_cache ? 1 : 0
+
   name            = "woodpecker-cache"
   use_name_prefix = false
 
   policies = {
-    woodpecker_cache_s3 = aws_iam_policy.woodpecker_cache_s3.arn
+    woodpecker_cache_s3 = aws_iam_policy.woodpecker_cache_s3[0].arn
   }
 
   oidc_providers = {
@@ -137,10 +155,10 @@ module "woodpecker_cache_irsa" {
 
 output "woodpecker_cache_bucket_name" {
   description = "Woodpecker CI pipeline cache S3 bucket name. Set this as the bucket setting of the cache plugin steps in each repo's .woodpecker/*.yaml, or publish it as a Woodpecker organization secret so pipelines read it from there."
-  value       = aws_s3_bucket.woodpecker_cache.id
+  value       = one(aws_s3_bucket.woodpecker_cache[*].id)
 }
 
 output "woodpecker_cache_role_arn" {
   description = "IRSA role ARN for the woodpecker-cache ServiceAccount. Set this as the eks.amazonaws.com/role-arn annotation on that ServiceAccount in apps/woodpecker in fluxcd-template."
-  value       = module.woodpecker_cache_irsa.arn
+  value       = one(module.woodpecker_cache_irsa[*].arn)
 }

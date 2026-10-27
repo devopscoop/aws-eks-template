@@ -11,6 +11,9 @@
 # access via the bucket policy below. Retaining logs for a full year matches the
 # EKS control-plane log retention (main.tf) and covers the 12-month SOC 2 Type
 # II observation period.
+#
+# enable_flow_logs (terraform.tfvars) gates this file and the VPC module's
+# flow log together: the flow log has nowhere to deliver without the bucket.
 ################################################################################
 
 locals {
@@ -23,6 +26,8 @@ locals {
 }
 
 resource "aws_s3_bucket" "flow_logs" {
+  count = var.enable_flow_logs ? 1 : 0
+
   bucket = local.flow_logs_bucket
 
   # The VantaNoAlert tag deactivates the resource in Vanta (marks it out of
@@ -38,7 +43,9 @@ resource "aws_s3_bucket" "flow_logs" {
 }
 
 resource "aws_s3_bucket_public_access_block" "flow_logs" {
-  bucket = aws_s3_bucket.flow_logs.id
+  count = var.enable_flow_logs ? 1 : 0
+
+  bucket = aws_s3_bucket.flow_logs[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -54,7 +61,9 @@ resource "aws_s3_bucket_public_access_block" "flow_logs" {
 # Expire delivered flow log objects after the retention window; also clean up
 # any incomplete multipart uploads.
 resource "aws_s3_bucket_lifecycle_configuration" "flow_logs" {
-  bucket = aws_s3_bucket.flow_logs.id
+  count = var.enable_flow_logs ? 1 : 0
+
+  bucket = aws_s3_bucket.flow_logs[0].id
 
   rule {
     id     = "expire-flow-logs"
@@ -79,11 +88,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "flow_logs" {
 # SourceAccount/SourceArn conditions scope delivery to this account's logs and
 # guard against the confused-deputy problem.
 data "aws_iam_policy_document" "flow_logs" {
+  count = var.enable_flow_logs ? 1 : 0
+
   statement {
     sid       = "AWSLogDeliveryWrite"
     effect    = "Allow"
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.flow_logs.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
+    resources = ["${aws_s3_bucket.flow_logs[0].arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"]
 
     principals {
       type        = "Service"
@@ -113,7 +124,7 @@ data "aws_iam_policy_document" "flow_logs" {
     sid       = "AWSLogDeliveryAclCheck"
     effect    = "Allow"
     actions   = ["s3:GetBucketAcl", "s3:ListBucket"]
-    resources = [aws_s3_bucket.flow_logs.arn]
+    resources = [aws_s3_bucket.flow_logs[0].arn]
 
     principals {
       type        = "Service"
@@ -140,8 +151,8 @@ data "aws_iam_policy_document" "flow_logs" {
     effect  = "Deny"
     actions = ["s3:*"]
     resources = [
-      aws_s3_bucket.flow_logs.arn,
-      "${aws_s3_bucket.flow_logs.arn}/*",
+      aws_s3_bucket.flow_logs[0].arn,
+      "${aws_s3_bucket.flow_logs[0].arn}/*",
     ]
 
     principals {
@@ -158,8 +169,10 @@ data "aws_iam_policy_document" "flow_logs" {
 }
 
 resource "aws_s3_bucket_policy" "flow_logs" {
-  bucket = aws_s3_bucket.flow_logs.id
-  policy = data.aws_iam_policy_document.flow_logs.json
+  count = var.enable_flow_logs ? 1 : 0
+
+  bucket = aws_s3_bucket.flow_logs[0].id
+  policy = data.aws_iam_policy_document.flow_logs[0].json
 
   # The public-access block's block_public_policy setting evaluates bucket
   # policies as they are applied; create it first so this policy isn't rejected.

@@ -9,6 +9,8 @@
 # which is scoped to just this bucket. Set the role ARN as the
 # eks.amazonaws.com/role-arn annotation on the tempo ServiceAccount in
 # fluxcd-template (see the tempo_role_arn output).
+#
+# enable_tempo (terraform.tfvars) gates everything in this file.
 ################################################################################
 
 locals {
@@ -18,6 +20,8 @@ locals {
 }
 
 resource "aws_s3_bucket" "tempo" {
+  count = var.enable_tempo ? 1 : 0
+
   bucket = local.tempo_bucket
 
   # This bucket holds operational trace data and intentionally has no
@@ -33,7 +37,9 @@ resource "aws_s3_bucket" "tempo" {
 }
 
 resource "aws_s3_bucket_public_access_block" "tempo" {
-  bucket = aws_s3_bucket.tempo.id
+  count = var.enable_tempo ? 1 : 0
+
+  bucket = aws_s3_bucket.tempo[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -44,13 +50,15 @@ resource "aws_s3_bucket_public_access_block" "tempo" {
 # Deny all non-HTTPS access so trace data is always encrypted in transit.
 # Tempo (via its minio-go S3 client) uses TLS, so this only blocks misuse.
 data "aws_iam_policy_document" "tempo_https_only" {
+  count = var.enable_tempo ? 1 : 0
+
   statement {
     sid     = "DenyInsecureTransport"
     effect  = "Deny"
     actions = ["s3:*"]
     resources = [
-      aws_s3_bucket.tempo.arn,
-      "${aws_s3_bucket.tempo.arn}/*",
+      aws_s3_bucket.tempo[0].arn,
+      "${aws_s3_bucket.tempo[0].arn}/*",
     ]
 
     principals {
@@ -67,8 +75,10 @@ data "aws_iam_policy_document" "tempo_https_only" {
 }
 
 resource "aws_s3_bucket_policy" "tempo" {
-  bucket = aws_s3_bucket.tempo.id
-  policy = data.aws_iam_policy_document.tempo_https_only.json
+  count = var.enable_tempo ? 1 : 0
+
+  bucket = aws_s3_bucket.tempo[0].id
+  policy = data.aws_iam_policy_document.tempo_https_only[0].json
 
   # The public-access block's block_public_policy setting evaluates bucket
   # policies as they are applied; create it first so this policy isn't rejected.
@@ -87,7 +97,9 @@ resource "aws_s3_bucket_policy" "tempo" {
 # cnpg-backups.tf: that rule exists for buckets that have ever had versioning
 # enabled, and this one never has.)
 resource "aws_s3_bucket_lifecycle_configuration" "tempo" {
-  bucket = aws_s3_bucket.tempo.id
+  count = var.enable_tempo ? 1 : 0
+
+  bucket = aws_s3_bucket.tempo[0].id
 
   rule {
     id     = "abort-incomplete-multipart-uploads"
@@ -106,10 +118,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "tempo" {
 # (https://grafana.com/docs/tempo/latest/configuration/hosted-storage/s3/) —
 # it tags objects during compaction.
 data "aws_iam_policy_document" "tempo_s3" {
+  count = var.enable_tempo ? 1 : 0
+
   statement {
     sid       = "ListTempoBucket"
     actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.tempo.arn]
+    resources = [aws_s3_bucket.tempo[0].arn]
   }
 
   statement {
@@ -121,25 +135,29 @@ data "aws_iam_policy_document" "tempo_s3" {
       "s3:GetObjectTagging",
       "s3:PutObjectTagging",
     ]
-    resources = ["${aws_s3_bucket.tempo.arn}/*"]
+    resources = ["${aws_s3_bucket.tempo[0].arn}/*"]
   }
 }
 
 resource "aws_iam_policy" "tempo_s3" {
+  count = var.enable_tempo ? 1 : 0
+
   name        = "${local.name}-tempo-s3"
   description = "Read/write access to the Tempo trace-blocks S3 bucket"
-  policy      = data.aws_iam_policy_document.tempo_s3.json
+  policy      = data.aws_iam_policy_document.tempo_s3[0].json
 }
 
 module "tempo_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.8.2"
 
+  count = var.enable_tempo ? 1 : 0
+
   name            = "tempo"
   use_name_prefix = false
 
   policies = {
-    tempo_s3 = aws_iam_policy.tempo_s3.arn
+    tempo_s3 = aws_iam_policy.tempo_s3[0].arn
   }
 
   oidc_providers = {
@@ -154,10 +172,10 @@ module "tempo_irsa" {
 
 output "tempo_bucket_name" {
   description = "Tempo S3 bucket name. Set this as tempo.storage.trace.s3.bucket in the tempo Helm values in fluxcd-template."
-  value       = aws_s3_bucket.tempo.id
+  value       = one(aws_s3_bucket.tempo[*].id)
 }
 
 output "tempo_role_arn" {
   description = "IRSA role ARN for the tempo ServiceAccount. Set this as the eks.amazonaws.com/role-arn annotation on the tempo ServiceAccount in fluxcd-template."
-  value       = module.tempo_irsa.arn
+  value       = one(module.tempo_irsa[*].arn)
 }

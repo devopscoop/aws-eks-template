@@ -59,6 +59,18 @@ variable "enable_route53" {
   type        = bool
   description = "Enables Route53 as the DNS provider, and installs cert-manager and external-dns with AWS IAM OIDC authentication, so we don't have to manage access keys."
 }
+variable "enable_flow_logs" {
+  type        = bool
+  description = "Creates the VPC flow logs S3 bucket and turns on VPC flow logging to it (flow-logs.tf, enable_flow_log in main.tf). Leave on for any cluster in SOC 2 / ISO 27001 scope: flow logs are part of the network monitoring evidence (CC7.2, Annex A 8.15/8.16)."
+}
+variable "enable_tempo" {
+  type        = bool
+  description = "Creates the Tempo trace-storage S3 bucket and the tempo IRSA role (tempo.tf). Turn off only together with removing Tempo from fluxcd-template; with it off, the tempo_* outputs are null."
+}
+variable "enable_woodpecker_cache" {
+  type        = bool
+  description = "Creates the Woodpecker CI pipeline cache S3 bucket and the woodpecker-cache IRSA role (woodpecker-cache.tf). Only needed when apps/woodpecker in fluxcd-template runs cache plugin steps; with it off, the woodpecker_cache_* outputs are null."
+}
 variable "create_route53_zone" {
   type    = bool
   default = true

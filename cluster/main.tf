@@ -341,9 +341,9 @@ module "vpc" {
   # Network flow logging supports SOC 2 (CC7.2, System Monitoring) and ISO/IEC
   # 27001:2022 Annex A 8.15 (Logging) / 8.16 (Monitoring activities), and aids
   # incident investigation.
-  enable_flow_log                      = true
+  enable_flow_log                      = var.enable_flow_logs
   flow_log_destination_type            = "s3"
-  flow_log_destination_arn             = aws_s3_bucket.flow_logs.arn
+  flow_log_destination_arn             = one(aws_s3_bucket.flow_logs[*].arn)
   create_flow_log_cloudwatch_iam_role  = false
   create_flow_log_cloudwatch_log_group = false
   flow_log_traffic_type                = "ALL"
