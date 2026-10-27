@@ -38,11 +38,17 @@ locals {
   # hardening and the minimal barman IAM grant should never drift between
   # databases. A database that grows genuinely different needs graduates out
   # of this map into its own file.
+  #
+  # No enable_* toggle: a cluster without CNPG databases sets this to {} and
+  # every resource in this file goes away.
   cnpg_databases = {
     goalert = "goalert-db"
   }
 
   # for_each source for everything that only exists when replication is on.
+  # The shared replication role below counts on this map, not the bool:
+  # with cnpg_databases empty its policy would have no Resources, which IAM
+  # rejects at apply.
   replicated_cnpg_databases = var.cnpg_backup_replication ? local.cnpg_databases : {}
 
   # Vanta fails user-data buckets with no expiration. Far above barman's
@@ -382,7 +388,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "cnpg_db_backups_replica" {
 }
 
 data "aws_iam_policy_document" "cnpg_db_backups_replication_assume_role" {
-  count = var.cnpg_backup_replication ? 1 : 0
+  count = length(local.replicated_cnpg_databases) > 0 ? 1 : 0
 
   statement {
     effect = "Allow"
@@ -401,14 +407,14 @@ data "aws_iam_policy_document" "cnpg_db_backups_replication_assume_role" {
 # only assumable by the S3 service itself, so per-database isolation buys
 # nothing.
 resource "aws_iam_role" "cnpg_db_backups_replication" {
-  count = var.cnpg_backup_replication ? 1 : 0
+  count = length(local.replicated_cnpg_databases) > 0 ? 1 : 0
 
   name               = "${local.name}-cnpg-db-backups-replication"
   assume_role_policy = data.aws_iam_policy_document.cnpg_db_backups_replication_assume_role[0].json
 }
 
 data "aws_iam_policy_document" "cnpg_db_backups_replication" {
-  count = var.cnpg_backup_replication ? 1 : 0
+  count = length(local.replicated_cnpg_databases) > 0 ? 1 : 0
 
   statement {
     effect = "Allow"
@@ -441,7 +447,7 @@ data "aws_iam_policy_document" "cnpg_db_backups_replication" {
 }
 
 resource "aws_iam_role_policy" "cnpg_db_backups_replication" {
-  count = var.cnpg_backup_replication ? 1 : 0
+  count = length(local.replicated_cnpg_databases) > 0 ? 1 : 0
 
   name   = "${local.name}-cnpg-db-backups-replication"
   role   = aws_iam_role.cnpg_db_backups_replication[0].id
