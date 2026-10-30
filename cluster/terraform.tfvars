@@ -8,21 +8,21 @@ region       = "us-east-2"
 cluster_version = "1.36"
 
 # Use the update_eks_addons.sh script in this directory to automatically update all EKS addon versions in this file.
-eks_addon_version_aws-ebs-csi-driver        = "v1.66.0-eksbuild.1"
-eks_addon_version_aws-efs-csi-driver        = "v3.4.2-eksbuild.1"
-eks_addon_version_snapshot-controller       = "v8.6.0-eksbuild.8"
-eks_addon_version_coredns                   = "v1.14.6-eksbuild.4"
-eks_addon_version_eks-node-monitoring-agent = "v1.7.2-eksbuild.1"
-eks_addon_version_eks-pod-identity-agent    = "v1.4.0-eksbuild.3"
-eks_addon_version_kube-proxy                = "v1.36.0-eksbuild.25"
-eks_addon_version_vpc-cni                   = "v1.23.2-eksbuild.1"
+eks_addon_version_aws-ebs-csi-driver        = "v1.67.2-eksbuild.1"
+eks_addon_version_aws-efs-csi-driver        = "v3.5.3-eksbuild.1"
+eks_addon_version_snapshot-controller       = "v8.7.0-eksbuild.2"
+eks_addon_version_coredns                   = "v1.14.7-eksbuild.22"
+eks_addon_version_eks-node-monitoring-agent = "v1.7.6-eksbuild.1"
+eks_addon_version_eks-pod-identity-agent    = "v1.4.1-eksbuild.3"
+eks_addon_version_kube-proxy                = "v1.36.0-eksbuild.58"
+eks_addon_version_vpc-cni                   = "v1.23.2-eksbuild.8"
 
 # Use the update_node_ami.sh script in this directory to update this to the
 # latest EKS-optimized AMI release for cluster_version; it also opens a
 # fluxcd-template PR pinning Karpenter's nodes to the same release. Pinned so a
 # new AMI release rotates the nodes only when someone asks for it — see the
 # comment on ami_release_version in main.tf.
-node_ami_release_version = "1.36.4-20260930"
+node_ami_release_version = "1.36.5-20261026"
 
 enable_image_reflector_controller = true
 enable_route53                    = true
