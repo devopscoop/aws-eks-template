@@ -22,7 +22,7 @@ eks_addon_version_vpc-cni                   = "v1.23.2-eksbuild.1"
 # fluxcd-template PR pinning Karpenter's nodes to the same release. Pinned so a
 # new AMI release rotates the nodes only when someone asks for it — see the
 # comment on ami_release_version in main.tf.
-node_ami_release_version = "1.36.4-20260930"
+node_ami_release_version = "1.36.5-20261026"
 
 enable_image_reflector_controller = true
 enable_route53                    = true
