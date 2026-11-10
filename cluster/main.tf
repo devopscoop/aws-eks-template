@@ -48,17 +48,11 @@ locals {
   # the VPC doesn't add node groups.
   availability_zones = slice(local.azs, 0, 3)
 
-  # Node group generations by number; generation N's groups are ng-<zone>-<N>.
-  # Changing instance_types replaces a group, so add a generation, move the
-  # workloads, then delete the old one: docs/changing-instance-types.md.
-  node_group_generations = {
-    1 = { instance_types = ["t3a.large"] }
-  }
-
-  # One node group per generation per zone. Each entry carries the index of
-  # its zone so the group below can pin itself to that zone's private subnet.
+  # One node group per generation (var.node_group_generations) per zone, named
+  # ng-<zone>-<generation>. Each carries its zone's index so the group below can
+  # pin itself to that zone's private subnet.
   node_groups = merge([
-    for generation, group in local.node_group_generations : {
+    for generation, group in var.node_group_generations : {
       for i, az in local.availability_zones : "ng-${trimprefix(az, local.region)}-${generation}" => merge(group, { az_index = i })
     }
   ]...)
@@ -197,9 +191,9 @@ module "eks" {
         enabled = true
       }
 
-      # instance_types = ["t4g.large"]
+      # Set per generation in node_group_generations (terraform.tfvars). For an
+      # ARM type such as t4g.large, also uncomment this and see update_node_ami.sh.
       # ami_type       = "AL2023_ARM_64_STANDARD"
-      # The type lives in local.node_group_generations (top of this file).
       instance_types = group.instance_types
 
       # Pinned so a new EKS AMI isn't a node rotation on an unrelated PR. Bump

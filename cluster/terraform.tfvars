@@ -24,6 +24,13 @@ eks_addon_version_vpc-cni                   = "v1.23.2-eksbuild.8"
 # comment on ami_release_version in main.tf.
 node_ami_release_version = "1.36.5-20261026"
 
+# EKS managed node groups, one per zone per generation (ng-a-1, ng-b-1,
+# ng-c-1). Changing instance_types replaces the groups, so add the next
+# generation instead: docs/changing-instance-types.md.
+node_group_generations = {
+  1 = { instance_types = ["t3a.large"] }
+}
+
 enable_image_reflector_controller = true
 enable_route53                    = true
 create_route53_zone               = true

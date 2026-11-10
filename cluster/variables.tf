@@ -47,6 +47,21 @@ variable "eks_addon_version_snapshot-controller" {
 variable "eks_addon_version_vpc-cni" {
   type = string
 }
+variable "node_group_generations" {
+  type = map(object({
+    instance_types = list(string)
+  }))
+  description = "Generations of EKS managed node groups (main.tf), keyed by generation number. Each generation gets one node group per zone, named ng-<zone>-<generation> (ng-a-1, ng-b-1, ng-c-1). Changing a generation's instance_types replaces its groups, and EKS terminates a deleted group's nodes regardless of PodDisruptionBudgets, so change instance types by adding the next generation instead: docs/changing-instance-types.md. Numbers only go up and are never reused, since renumbering a generation replaces its groups too."
+
+  validation {
+    condition     = length(var.node_group_generations) > 0
+    error_message = "node_group_generations must keep at least one generation; removing the last one deletes every managed node group."
+  }
+  validation {
+    condition     = alltrue([for generation in keys(var.node_group_generations) : can(regex("^[1-9][0-9]*$", generation))])
+    error_message = "node_group_generations keys must be generation numbers (1, 2, 3, ...)."
+  }
+}
 variable "node_ami_release_version" {
   type        = string
   description = "EKS-optimized AMI release version for the managed node groups (main.tf), e.g. \"1.35.8-20260917\". Pinned so that a new AMI release is a deliberate change instead of a node rotation riding along with an unrelated PR — left unset, the module resolves it to the latest release for cluster_version on every plan. Must be a release of cluster_version's Kubernetes minor; run ./update_node_ami.sh to bump both together."
