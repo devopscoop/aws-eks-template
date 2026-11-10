@@ -51,15 +51,15 @@ variable "node_group_generations" {
   type = map(object({
     instance_types = list(string)
   }))
-  description = "Generations of EKS managed node groups (main.tf), keyed by generation number. Each generation gets one node group per zone, named ng-<zone>-<generation> (ng-a-1, ng-b-1, ng-c-1). Changing a generation's instance_types replaces its groups, and EKS terminates a deleted group's nodes regardless of PodDisruptionBudgets, so change instance types by adding the next generation instead: docs/changing-instance-types.md. Numbers only go up and are never reused, since renumbering a generation replaces its groups too."
+  description = "Generations of EKS managed node groups (main.tf), keyed by a name and generation such as ng-1. Each generation gets one node group per zone, named <key>-<zone> (ng-1-a, ng-1-b, ng-1-c). Changing a generation's instance_types replaces its groups, and EKS terminates a deleted group's nodes regardless of PodDisruptionBudgets, so change instance types by adding the next generation (ng-2) instead: docs/changing-instance-types.md. Never rename or reuse a key, since a group's name comes from it and renaming replaces the group too."
 
   validation {
     condition     = length(var.node_group_generations) > 0
     error_message = "node_group_generations must keep at least one generation; removing the last one deletes every managed node group."
   }
   validation {
-    condition     = alltrue([for generation in keys(var.node_group_generations) : can(regex("^[1-9][0-9]*$", generation))])
-    error_message = "node_group_generations keys must be generation numbers (1, 2, 3, ...)."
+    condition     = alltrue([for generation in keys(var.node_group_generations) : can(regex("^[A-Za-z0-9][A-Za-z0-9_-]{0,19}$", generation))])
+    error_message = "node_group_generations keys must be 1-20 letters, digits, hyphens or underscores, starting with a letter or digit (e.g. ng-1). The limit keeps the node IAM role's name prefix, <key>-<zone>-eks-node-group-, within IAM's 38 characters."
   }
 }
 variable "node_ami_release_version" {

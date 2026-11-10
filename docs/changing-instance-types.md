@@ -8,7 +8,7 @@ So an instance-type change is a rotation to a new **generation** of node groups,
 2. **By hand:** drain the old nodes one at a time, waiting until everything they ran is healthy on the new nodes.
 3. **PR 2:** delete the old generation once its nodes are empty.
 
-Node groups are named `ng-<zone>-<N>`, where N is the generation: a new cluster starts with `ng-a-1`, `ng-b-1` and `ng-c-1`, the first rotation adds `ng-a-2`, `ng-b-2` and `ng-c-2`, and so on. The number only goes up and is never reused. A node group's name comes from its map key, so renumbering a generation would replace its groups too. This procedure applies to anything else that replaces the groups too (a subnet or disk change, for example). Not to AMI and cluster version updates: those update the existing groups in place, and the per-AZ design handles them (see the comment above `eks_managed_node_groups` in `cluster/main.tf`).
+Each generation has a key made of a name and a generation number, and its node groups are named `<key>-<zone>`: a new cluster starts with `ng-1`, which makes `ng-1-a`, `ng-1-b` and `ng-1-c`, the first rotation adds `ng-2` (`ng-2-a`, `ng-2-b` and `ng-2-c`), and so on. The number only goes up and is never reused. A node group's name comes from its key, so renaming a generation would replace its groups too. This procedure applies to anything else that replaces the groups too (a subnet or disk change, for example). Not to AMI and cluster version updates: those update the existing groups in place, and the per-AZ design handles them (see the comment above `eks_managed_node_groups` in `cluster/main.tf`).
 
 ## Before you start
 
@@ -27,20 +27,20 @@ Node groups are named `ng-<zone>-<N>`, where N is the generation: a new cluster 
 
 ## 1. Add the next generation (PR 1)
 
-The node groups are generated from the `node_group_generations` variable, set in `cluster/terraform.tfvars`: one entry per generation, keyed by generation number. `local.node_groups` in `cluster/main.tf` expands each generation to one group per zone.
+The node groups are generated from the `node_group_generations` variable, set in `cluster/terraform.tfvars`: one entry per generation, keyed by name and generation number. `local.node_groups` in `cluster/main.tf` expands each generation to one group per zone.
 
 ```hcl
 node_group_generations = {
-  1 = { instance_types = ["t3a.large"] } # whatever the file has today
+  ng-1 = { instance_types = ["t3a.large"] } # whatever the file has today
 }
 ```
 
-The rotation PR adds an entry with the next number:
+The rotation PR adds an entry with the next generation number:
 
 ```hcl
 node_group_generations = {
-  1 = { instance_types = ["t3a.large"] }
-  2 = { instance_types = ["<new type>"] }
+  ng-1 = { instance_types = ["t3a.large"] }
+  ng-2 = { instance_types = ["<new type>"] }
 }
 ```
 

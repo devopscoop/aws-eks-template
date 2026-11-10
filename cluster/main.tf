@@ -63,11 +63,11 @@ locals {
   availability_zones = slice(local.azs, 0, 3)
 
   # One node group per generation (var.node_group_generations) per zone, named
-  # ng-<zone>-<generation>. Each carries its zone's index so the group below can
-  # pin itself to that zone's private subnet.
+  # <generation key>-<zone>: ng-1-a, ng-1-b, ng-1-c. Each carries its zone's
+  # index so the group below can pin itself to that zone's private subnet.
   node_groups = merge([
     for generation, group in var.node_group_generations : {
-      for i, az in local.availability_zones : "ng-${trimprefix(az, local.region)}-${generation}" => merge(group, { az_index = i })
+      for i, az in local.availability_zones : "${generation}-${trimprefix(az, local.region)}" => merge(group, { az_index = i })
     }
   ]...)
 

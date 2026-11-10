@@ -40,7 +40,7 @@ locals {
 }
 
 resource "aws_cloudwatch_metric_alarm" "node_cpu" {
-  # The map keys ("ng-a-1", ...) are the node group names from main.tf, derived
+  # The map keys ("ng-1-a", ...) are the node group names from main.tf, derived
   # from var.node_group_generations and local.azs — a data source, so still
   # resolved during plan and usable as for_each keys even before the cluster
   # exists; only the ASG name inside dimensions is resolved at apply. One alarm
