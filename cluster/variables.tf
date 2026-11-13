@@ -86,6 +86,10 @@ variable "enable_harbor" {
   type        = bool
   description = "Creates the Harbor registry S3 bucket and the harbor-registry IRSA role (harbor.tf). Only needed when apps/harbor in fluxcd-template runs on EKS; with it off, the harbor_registry_* outputs are null. Harbor's database bucket is separate: add harbor to local.cnpg_databases in cnpg-backups.tf."
 }
+variable "enable_harbor_ecr_proxy" {
+  type        = bool
+  description = "Creates the harbor-core IRSA role (harbor.tf), which lets Harbor's pull-through cache pull from this account's private ECR repositories in var.region. Needs enable_harbor, and the ecr-proxy marker enabled in fluxcd-template. The proxy-cache project is public, so anything that can reach Harbor can pull those images; with it off, harbor_core_role_arn is null."
+}
 variable "enable_woodpecker_cache" {
   type        = bool
   description = "Creates the Woodpecker CI pipeline cache S3 bucket and the woodpecker-cache IRSA role (woodpecker-cache.tf). Only needed when apps/woodpecker in fluxcd-template runs cache plugin steps; with it off, the woodpecker_cache_* outputs are null."
