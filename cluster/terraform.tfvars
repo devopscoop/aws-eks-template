@@ -35,12 +35,14 @@ enable_image_reflector_controller = true
 enable_route53                    = true
 create_route53_zone               = true
 # S3 buckets (and the IAM roles that use them). Flow logs and Tempo are on by
-# default; the Woodpecker CI cache is off because only clusters that run
-# Woodpecker (apps/woodpecker in fluxcd-template) need it. Turning one off on a
-# cluster that already has the bucket destroys it, and the apply fails on a
-# non-empty bucket, so empty the bucket first.
+# default; Harbor's registry bucket and the Woodpecker CI cache are off because
+# only clusters that run those apps (apps/harbor, apps/woodpecker in
+# fluxcd-template) need them. Turning one off on a cluster that already has the
+# bucket destroys it, and the apply fails on a non-empty bucket, so empty the
+# bucket first (for the versioned Harbor bucket, every version too).
 enable_flow_logs        = true
 enable_tempo            = true
+enable_harbor           = false
 enable_woodpecker_cache = false
 # Set false if the account already has AWSServiceRoleForEC2Spot (any prior
 # spot use creates it implicitly); see cluster/karpenter.tf.

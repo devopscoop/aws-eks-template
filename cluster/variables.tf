@@ -82,6 +82,10 @@ variable "enable_tempo" {
   type        = bool
   description = "Creates the Tempo trace-storage S3 bucket and the tempo IRSA role (tempo.tf). Turn off only together with removing Tempo from fluxcd-template; with it off, the tempo_* outputs are null."
 }
+variable "enable_harbor" {
+  type        = bool
+  description = "Creates the Harbor registry S3 bucket and the harbor-registry IRSA role (harbor.tf). Only needed when apps/harbor in fluxcd-template runs on EKS; with it off, the harbor_registry_* outputs are null. Harbor's database bucket is separate: add harbor to local.cnpg_databases in cnpg-backups.tf."
+}
 variable "enable_woodpecker_cache" {
   type        = bool
   description = "Creates the Woodpecker CI pipeline cache S3 bucket and the woodpecker-cache IRSA role (woodpecker-cache.tf). Only needed when apps/woodpecker in fluxcd-template runs cache plugin steps; with it off, the woodpecker_cache_* outputs are null."
