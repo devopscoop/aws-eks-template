@@ -44,6 +44,11 @@ enable_flow_logs        = true
 enable_tempo            = true
 enable_harbor           = false
 enable_woodpecker_cache = false
+# Harbor's pull-through cache for this account's private ECR (the harbor-core
+# role in harbor.tf). Needs enable_harbor and the ecr-proxy marker in
+# fluxcd-template, and makes every image in the account's ECR (in this region)
+# pullable by anything that can reach Harbor.
+enable_harbor_ecr_proxy = false
 # Set false if the account already has AWSServiceRoleForEC2Spot (any prior
 # spot use creates it implicitly); see cluster/karpenter.tf.
 create_spot_service_linked_role = true

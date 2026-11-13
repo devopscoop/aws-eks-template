@@ -18,7 +18,8 @@
 # IRSA one: nothing here is specific to the workaround, and nothing changes
 # when Harbor moves to a registry that supports IRSA directly.
 #
-# enable_harbor (terraform.tfvars) gates everything in this file.
+# enable_harbor (terraform.tfvars) gates everything in this file;
+# enable_harbor_ecr_proxy additionally gates the harbor-core role at the end.
 ################################################################################
 
 locals {
@@ -207,11 +208,88 @@ module "harbor_registry_irsa" {
 }
 
 output "harbor_registry_bucket_name" {
-  description = "Harbor registry S3 bucket name. Set this as persistence.imageChartStorage.s3.bucket in apps/harbor/values-eks.yaml in fluxcd-template (replace_placeholders.sh fills it in from org_name and cluster_name)."
+  description = "Harbor registry S3 bucket name. Set this as persistence.imageChartStorage.s3.bucket in the eks block of apps/harbor/values.yaml in fluxcd-template (replace_placeholders.sh fills it in from org_name and cluster_name)."
   value       = one(aws_s3_bucket.harbor_registry[*].id)
 }
 
 output "harbor_registry_role_arn" {
   description = "IRSA role ARN for the harbor-registry ServiceAccount. Set this as the eks.amazonaws.com/role-arn annotation in apps/harbor/serviceaccount-registry.yaml in fluxcd-template (replace_placeholders.sh fills in the account ID)."
   value       = one(module.harbor_registry_irsa[*].arn)
+}
+
+################################################################################
+# Harbor pull-through cache for this account's private ECR
+#
+# Lets apps/registry-mirrors in fluxcd-template add this account's ECR registry
+# in the cluster's region (<account>.dkr.ecr.<region>.amazonaws.com) to
+# Harbor's pull-through cache, behind its ecr-proxy marker. Proxy-cache fetches
+# run in harbor-core, so this role goes to harbor-core's ServiceAccount, not
+# the registry's. Unlike the registry, harbor-core needs no credentials
+# sidecar: Harbor's aws-ecr adapter (as of Harbor 2.15) builds its ECR client
+# from the AWS SDK's default credential chain whenever the registry endpoint
+# has no access key, and that chain reads IRSA's web identity token.
+#
+# Read-only, and scoped to this account's repositories in this region: the
+# token call (which has no resource-level permissions) and the three calls an
+# image pull makes. The proxy-cache project is public, so anything that can
+# reach Harbor can pull every image this role can read.
+#
+# enable_harbor_ecr_proxy (terraform.tfvars) gates this section, on top of
+# enable_harbor.
+################################################################################
+
+data "aws_iam_policy_document" "harbor_core_ecr" {
+  count = var.enable_harbor && var.enable_harbor_ecr_proxy ? 1 : 0
+
+  statement {
+    sid       = "GetEcrAuthorizationToken"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "PullEcrImages"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+    ]
+    resources = ["arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/*"]
+  }
+}
+
+resource "aws_iam_policy" "harbor_core_ecr" {
+  count = var.enable_harbor && var.enable_harbor_ecr_proxy ? 1 : 0
+
+  name        = "${local.name}-harbor-core-ecr"
+  description = "Pull access to this account's ECR repositories in ${var.region}, for Harbor's pull-through cache"
+  policy      = data.aws_iam_policy_document.harbor_core_ecr[0].json
+}
+
+module "harbor_core_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "6.8.2"
+
+  count = var.enable_harbor && var.enable_harbor_ecr_proxy ? 1 : 0
+
+  name            = "harbor-core"
+  use_name_prefix = false
+
+  policies = {
+    harbor_core_ecr = aws_iam_policy.harbor_core_ecr[0].arn
+  }
+
+  oidc_providers = {
+    main = {
+      provider_arn = module.eks.oidc_provider_arn
+      # apps/harbor ships this ServiceAccount behind its ecr-proxy marker and
+      # points the harbor-core Deployment at it.
+      namespace_service_accounts = ["harbor:harbor-core"]
+    }
+  }
+}
+
+output "harbor_core_role_arn" {
+  description = "IRSA role ARN for the harbor-core ServiceAccount, which pulls this account's ECR images into Harbor's pull-through cache. Set this as the eks.amazonaws.com/role-arn annotation in apps/harbor/serviceaccount-core.yaml in fluxcd-template (replace_placeholders.sh fills in the account ID)."
+  value       = one(module.harbor_core_irsa[*].arn)
 }
