@@ -132,7 +132,7 @@ resource "aws_iam_policy" "woodpecker_cache_s3" {
 # cache plugin that reads the AWS SDK credential chain; confirm s3-cache does.
 module "woodpecker_cache_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.8.2"
+  version = "6.11.1"
 
   count = var.enable_woodpecker_cache ? 1 : 0
 

@@ -184,7 +184,7 @@ resource "aws_iam_policy" "harbor_registry_s3" {
 
 module "harbor_registry_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.8.2"
+  version = "6.11.1"
 
   count = var.enable_harbor ? 1 : 0
 
@@ -268,7 +268,7 @@ resource "aws_iam_policy" "harbor_core_ecr" {
 
 module "harbor_core_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.8.2"
+  version = "6.11.1"
 
   count = var.enable_harbor && var.enable_harbor_ecr_proxy ? 1 : 0
 
